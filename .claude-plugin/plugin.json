@@ -1,0 +1,5 @@
+{
+  "name": "mods",
+  "version": "0.1.0",
+  "description": "Personal Claude Code toolkit: quick-fixer, planner and builder subagents, plus a plan-and-build workflow."
+}
