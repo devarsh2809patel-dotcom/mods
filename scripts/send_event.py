@@ -3,7 +3,8 @@
 
 Minimal, dependency-free sender compatible with the event format of
 github.com/disler/claude-code-hooks-multi-agent-observability.
-Never blocks Claude: any failure exits 0 silently.
+Never blocks Claude: any failure exits 0 silently. Events sent before the
+dashboard is up are queued and replayed by dashboard/start.sh.
 """
 import argparse
 import json
@@ -11,6 +12,10 @@ import os
 import sys
 import time
 import urllib.request
+
+CACHE = os.path.join(os.path.expanduser("~"), ".cache", "mods", "observability")
+PENDING = os.path.join(CACHE, "pending.jsonl")
+PENDING_MAX_BYTES = 20 * 1024 * 1024
 
 FORWARDED_FIELDS = (
     "tool_name", "tool_use_id", "error", "is_interrupt", "permission_suggestions",
@@ -57,8 +62,8 @@ def read_chat(path):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--event-type", required=True)
-    p.add_argument("--source-app", default=os.environ.get("OBS_SOURCE_APP", "mods"))
-    p.add_argument("--server-url", default=os.environ.get("OBS_SERVER_URL", "http://localhost:4000/events"))
+    p.add_argument("--source-app", default=os.environ.get("OBS_SOURCE_APP"))
+    p.add_argument("--server-url", default=os.environ.get("OBS_SERVER_URL", "http://127.0.0.1:4000/events"))
     p.add_argument("--add-chat", action="store_true")
     args = p.parse_args()
 
@@ -68,8 +73,10 @@ def main():
         return
 
     transcript = data.get("transcript_path") or ""
+    # Label events with the project folder name unless told otherwise
+    source_app = args.source_app or os.path.basename((data.get("cwd") or os.getcwd()).rstrip("/")) or "claude"
     event = {
-        "source_app": args.source_app,
+        "source_app": source_app,
         "session_id": data.get("session_id", "unknown"),
         "hook_event_type": args.event_type,
         "payload": data,
@@ -90,7 +97,20 @@ def main():
     try:
         urllib.request.urlopen(req, timeout=2).close()
     except Exception:
-        pass  # server not running: drop the event, never block Claude
+        queue(event)  # dashboard not up yet: keep it for start.sh to replay
+
+
+def queue(event):
+    """Save an event the dashboard could not take yet. Never raises."""
+    try:
+        os.makedirs(CACHE, exist_ok=True)
+        if os.path.exists(PENDING) and os.path.getsize(PENDING) > PENDING_MAX_BYTES:
+            return
+        event.pop("chat", None)  # transcripts are large; the replayed event keeps the rest
+        with open(PENDING, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event) + "\n")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

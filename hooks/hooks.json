@@ -5,7 +5,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type SessionStart",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/dashboard/start.sh\" --background",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type SessionStart",
             "timeout": 5
           }
         ]
@@ -16,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type SessionEnd",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type SessionEnd",
             "timeout": 5
           }
         ]
@@ -27,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type UserPromptSubmit",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type UserPromptSubmit",
             "timeout": 5
           }
         ]
@@ -39,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type PreToolUse",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type PreToolUse",
             "timeout": 5
           }
         ]
@@ -51,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type PostToolUse",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type PostToolUse",
             "timeout": 5
           }
         ]
@@ -63,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type PostToolUseFailure",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type PostToolUseFailure",
             "timeout": 5
           }
         ]
@@ -75,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type PermissionRequest",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type PermissionRequest",
             "timeout": 5
           }
         ]
@@ -86,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type Notification",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type Notification",
             "timeout": 5
           }
         ]
@@ -98,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type SubagentStart",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type SubagentStart",
             "timeout": 5
           }
         ]
@@ -109,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type SubagentStop --add-chat",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type SubagentStop --add-chat",
             "timeout": 5
           }
         ]
@@ -120,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type Stop --add-chat",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type Stop --add-chat",
             "timeout": 5
           }
         ]
@@ -131,7 +136,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py\" --event-type PreCompact",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/send_event.py\" --event-type PreCompact",
             "timeout": 5
           }
         ]

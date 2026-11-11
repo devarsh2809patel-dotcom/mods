@@ -10,6 +10,7 @@ A Claude Code plugin with personal subagents and workflows.
 | `planner` | subagent | opus | Reads the code and writes an implementation plan. Read-only: it has no edit or shell tools |
 | `builder` | subagent | sonnet | Writes the code by following the planner's plan |
 | `plan-and-build` | skill | — | Runs planner, then hands its full plan to builder |
+| `dashboard` | skill + hooks | — | Live dashboard of every Claude Code event; starts by itself |
 
 Use the workflow with `/mods:plan-and-build <what to build>`.
 
@@ -29,22 +30,28 @@ claude plugin install mods --marketplace devarsh2809patel-dotcom/mods
 
 ## Live dashboard (multi-agent observability)
 
-A live web dashboard of every Claude Code event in this project: prompts, tool calls, subagents, errors.
-It uses the server and web client from
-[disler/claude-code-hooks-multi-agent-observability](https://github.com/disler/claude-code-hooks-multi-agent-observability),
-fetched at a pinned commit into `~/.cache/mods/observability` (not copied into this repo).
+A live web page showing every prompt, tool call, subagent and error from your Claude Code sessions,
+in any repo where this plugin is installed. Events are labelled with the project folder name.
 
-- `.claude/settings.json` sends all 12 hook events to the dashboard via `.claude/hooks/send_event.py`
-  (plain Python, no dependencies, no API calls; drops events silently if the dashboard is not running).
-- `dashboard/start.sh` installs and starts it. Needs `bun` and `git`.
-- `dashboard/stop.sh` stops it.
+- **Starts by itself** when a session starts (in the background; first start on a fresh machine takes about a minute).
+  Events sent before it is ready are queued and replayed, so nothing is lost.
+- **Open it:** ask Claude to "open the dashboard" (or run `/mods:dashboard`). On your own computer it is http://localhost:5173.
+  In a Claude cloud session, open the "dashboard" port preview in the Claude app.
+- **Stop it:** ask Claude to stop the dashboard, or run `dashboard/stop.sh`.
+- **Needs:** `bun`, `git`, `python3`. Without `bun` the plugin stays silent and does nothing.
+- **Privacy:** data stays on the machine the session runs on (`~/.cache/mods/observability`).
+  The data server only accepts connections from that machine. On a personal computer the page does too.
+
+It uses the server and web page from
+[disler/claude-code-hooks-multi-agent-observability](https://github.com/disler/claude-code-hooks-multi-agent-observability),
+downloaded at a pinned version into `~/.cache/mods/observability` (not copied into this repo).
+
+## Use it in every Claude cloud session
+
+Add this to your cloud environment's setup script (Settings → environment → setup script).
+It needs this repository to be public.
 
 ```bash
-./dashboard/start.sh
+claude plugin marketplace add devarsh2809patel-dotcom/mods || true
+claude plugin install mods@mods --scope user || true
 ```
-
-Then open http://localhost:5173. The web page reaches the server through its own address (`/obs`),
-so it also works through a port preview in a cloud session.
-
-Note: the dashboard stores prompts, tool inputs and tool outputs in a local SQLite file
-(`~/.cache/mods/observability/apps/server/events.db`).
