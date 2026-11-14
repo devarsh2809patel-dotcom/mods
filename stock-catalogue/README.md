@@ -1,5 +1,11 @@
 # Stock Catalogue & Management System
 
+> **Shared editing for the whole family: `shared-backend/SETUP.md`**
+> * A Google Sheet in your account is the central database. The Studio (`standalone/Stock_Catalogue_Studio.html`) connects to it with a team passcode.
+> * Everyone edits the same list, and changes appear for others within about 30 seconds.
+> * You can still choose "Use on this device only" on the connect screen.
+> * Tests: `shared-backend/test/` runs the real `Code.gs` against stand-in Google services, with two people editing at once.
+
 > **Standalone tool (no Claude needed): `standalone/Stock_Catalogue_Studio.html`**
 > * Open the file in any browser (Chrome, Edge, Safari) on a phone or computer. It works offline, with no login.
 > * Every change is saved in that browser straight away, so added articles are kept for every later export.

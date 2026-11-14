@@ -528,13 +528,16 @@ const status = (t, err) => { const e = $("#status"); e.textContent = t; e.style.
 function firmSections(firm = S.firm) {
   return Object.entries(S.sections).filter(([, s]) => s.company === firm).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
 }
+const pending = new Set();
 function schedule(kind, id) {
   clearTimeout(timers[kind + id]);
+  pending.add(kind + id);
   status("Unsaved…");
   timers[kind + id] = setTimeout(() => write(kind, id), 700);
 }
 async function write(kind, id) {
   const key = kind + id;
+  clearTimeout(timers[key]); pending.delete(key);
   if (saving[key]) { saving[key] = "again"; return; }
   const body = kind === "sections" ? S.sections[id] : S.companies[id];
   if (!body) return;
@@ -542,8 +545,9 @@ async function write(kind, id) {
   const json = JSON.stringify(body);
   lastWritten[key] = json;
   try {
-    if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).set(JSON.parse(json));
-    status("Saved");
+    if (S.remote) await remoteSave(kind, id, JSON.parse(json));
+    else if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).set(JSON.parse(json));
+    status(S.remote ? "Saved for everyone" : "Saved");
   } catch (e) {
     status("Not saved", true);
     notice(`Could not save: ${e.message || e.code}. Your change is still on screen; edit again to retry.`, true);
@@ -553,8 +557,116 @@ async function write(kind, id) {
 }
 async function removeDoc(kind, id) {
   if (kind === "sections") delete S.sections[id]; else if (kind === "versions") delete S.versions[id];
-  try { if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).delete(); status("Saved"); }
+  try {
+    if (S.remote) { const r = await api("POST", { action: "delete", kind, id }); if (!r.ok) throw new Error(r.error); delete S.rev[kind + id]; }
+    else if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).delete();
+    status("Saved");
+  }
   catch (e) { notice(`Could not delete: ${e.message || e.code}`, true); }
+}
+
+/* ---------- shared mode: central database in a Google Sheet ---------- */
+const REMOTE_KEY = "stockCatalogueStudio.remote", MODE_KEY = "stockCatalogueStudio.mode";
+const R = { url: "", key: "", by: "" };
+S.rev = {};
+async function api(method, payload) {
+  let res;
+  if (method === "GET") {
+    const q = new URLSearchParams({ ...payload, key: R.key });
+    res = await fetch(R.url + (R.url.includes("?") ? "&" : "?") + q, { redirect: "follow" });
+  } else {
+    res = await fetch(R.url, { method: "POST", redirect: "follow", body: JSON.stringify({ ...payload, key: R.key, by: R.by }) });
+  }
+  if (!res.ok) throw new Error(`server answered ${res.status}`);
+  return res.json();
+}
+function applyDoc(d) {
+  const target = { companies: S.companies, sections: S.sections, versions: S.versions }[d.kind];
+  if (!target) return;
+  target[d.id] = d.body; S.rev[d.kind + d.id] = d.rev; lastWritten[d.kind + d.id] = JSON.stringify(d.body);
+}
+async function remoteSave(kind, id, body) {
+  const r = await api("POST", { action: "save", kind, id, rev: S.rev[kind + id] || 0, body });
+  if (r.ok) { S.rev[kind + id] = r.rev; return; }
+  if (r.error === "conflict" && r.doc) {
+    applyDoc(r.doc);
+    noticeMsg = { msg: `${r.doc.updatedBy || "Someone"} changed this at the same time. Their version is shown now; check that your last edit is still there and redo it if not.`, err: true };
+    renderSafe(); return;
+  }
+  throw new Error(r.error === "bad_key" ? "the team passcode was changed; reconnect on the Versions tab" : r.error);
+}
+async function ensureSnapshot(id) {
+  const v = S.versions[id];
+  if (!S.remote || !v || v.snapshot) return v;
+  const r = await api("GET", { action: "get", kind: "versions", id });
+  if (!r.ok) throw new Error(r.error);
+  applyDoc(r.doc); return S.versions[id];
+}
+async function pull(force) {
+  if (!S.remote || (!force && document.hidden) || pending.size || Object.values(saving).some(Boolean)) return;
+  let r;
+  try { r = await api("GET", { action: "list" }); } catch (e) { status("Offline – retrying", true); return; }
+  if (!r.ok) { status("Not synced", true); return; }
+  const seen = new Set(); let changed = false;
+  for (const d of r.docs) {
+    const k = d.kind + d.id; seen.add(k);
+    if ((S.rev[k] || 0) === d.rev || pending.has(k) || saving[k]) continue;
+    if (d.kind === "versions" && S.versions[d.id]?.snapshot && S.rev[k] === d.rev) continue;
+    applyDoc(d); changed = true;
+  }
+  for (const [kind, target] of [["companies", S.companies], ["sections", S.sections], ["versions", S.versions]])
+    for (const id of Object.keys(target)) if (S.rev[kind + id] && !seen.has(kind + id)) { delete target[id]; delete S.rev[kind + id]; changed = true; }
+  status("Synced " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  if (changed) renderSafe();
+  return r.docs.length;
+}
+function connectScreen(err) {
+  const cfg = readCfg();
+  $("#main").innerHTML = `<section class="panel" style="max-width:560px;margin:20px auto">
+    <div class="eyebrow">Shared stock catalogue</div><h1>Connect</h1>
+    <p class="sub">Everyone who connects with the team passcode edits the same stock list. You only do this once on each phone or computer.</p>
+    <form id="connectForm" class="fields" style="margin-top:12px">
+      ${window.__API_URL__ ? "" : `<label class="f">Shared catalogue address<input id="cx_url" value="${esc(cfg.url || "")}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>`}
+      <label class="f">Team passcode<input id="cx_key" type="password" value="${esc(cfg.key || "")}" autocomplete="current-password"></label>
+      <label class="f">Your name (shown when you change something)<input id="cx_by" value="${esc(cfg.by || "")}" placeholder="e.g. Nitin"></label>
+      ${err ? `<p class="flag">${esc(err)}</p>` : ""}
+      <div class="row"><button class="btn solid" type="submit">Connect</button>
+      <button class="btn ghost" type="button" data-act="useLocal">Use on this device only (no sharing)</button></div>
+    </form></section>`;
+}
+function readCfg() { try { return JSON.parse(localStorage.getItem(REMOTE_KEY) || "{}"); } catch (e) { return {}; } }
+document.addEventListener("submit", (e) => {
+  if (e.target.id !== "connectForm") return;
+  e.preventDefault();
+  const cfg = { url: (window.__API_URL__ || $("#cx_url").value).trim(), key: $("#cx_key").value.trim(), by: $("#cx_by").value.trim() };
+  if (!/^(https:\/\/|http:\/\/(127\.0\.0\.1|localhost)[:/])/.test(cfg.url) || !cfg.key) { connectScreen("Enter the shared catalogue address (starting with https://) and the team passcode."); return; }
+  bootRemote(cfg);
+});
+async function bootRemote(cfg) {
+  Object.assign(R, cfg);
+  status("Connecting…");
+  let r;
+  try { r = await api("GET", { action: "list" }); }
+  catch (e) { connectScreen("Could not reach the shared catalogue. Check the address and your internet connection."); return; }
+  if (!r.ok) { connectScreen(r.error === "bad_key" ? "Wrong team passcode." : `The shared catalogue answered: ${r.error}`); return; }
+  try { localStorage.setItem(REMOTE_KEY, JSON.stringify(cfg)); localStorage.setItem(MODE_KEY, "remote"); } catch (e) { /* remember next time only if allowed */ }
+  S.remote = true; S.local = false;
+  r.docs.forEach(applyDoc);
+  S.needsSeed = !r.docs.length;
+  S.ready = true; render(); status("Synced");
+  if (!S.polling) {
+    S.polling = setInterval(() => pull(false), 30000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) pull(false); });
+  }
+}
+async function seedRemote() {
+  const docs = [];
+  for (const kind of ["companies", "sections"]) for (const [id, body] of Object.entries(window.__SEED__[kind])) docs.push({ kind, id, body });
+  S.busy = "Loading starting stock…"; render();
+  const r = await api("POST", { action: "seed", docs });
+  S.busy = "";
+  if (!r.ok && r.error !== "not_empty") { notice(`Could not load starting stock: ${r.error}`, true); return; }
+  S.needsSeed = false; await pull(true); render();
 }
 let noticeMsg = null;
 function notice(msg, err) { noticeMsg = { msg, err }; render(); }
@@ -599,6 +711,12 @@ function render() {
   applyBrand();
   const main = $("#main");
   if (!S.ready) return;
+  if (S.needsSeed) {
+    main.innerHTML = `<section class="panel" style="max-width:600px;margin:20px auto"><h1>The shared catalogue is empty</h1>
+      <p class="sub">Load the starting stock list (442 articles each for C.D. Patel &amp; Sons and Daksh Enterprise, with company details). This is done once; after that everyone edits the same list.</p>
+      <div class="row" style="margin-top:12px"><button class="btn solid" data-act="seedRemote" ${S.busy ? "disabled" : ""}>${S.busy ? esc(S.busy) : "Load starting stock"}</button></div></section>`;
+    return;
+  }
   if (!firms.length) { main.innerHTML = `<div class="panel empty"><h2>No catalogue data yet</h2><p>Ask Claude to load the starting inventory into this page.</p></div>`; return; }
   if (!S.companies[S.firm]) S.firm = firms[0][0];
   let html = "";
@@ -769,13 +887,16 @@ function versionsView() {
 function backupPanel() {
   const imp = S.confirm?.type === "import" ? S.confirm : null;
   const count = imp ? Object.values(imp.data.sections).reduce((n, s) => n + (s.rows?.length || 0), 0) : 0;
-  return `<section class="panel"><h2>Data file (backup &amp; sharing)</h2>
-    <p class="sub">${S.local
+  const shared = S.remote ? `<section class="panel"><h2>Shared catalogue</h2>
+    <p class="sub">Connected${R.by ? " as <b>" + esc(R.by) + "</b>" : ""}. Everyone with the team passcode sees and edits the same list; changes from others appear within about 30 seconds.</p>
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="syncNow">Check for changes now</button><button class="btn ghost" data-act="disconnect">Disconnect this device</button></div></section>` : "";
+  return shared + `<section class="panel"><h2>Data file (backup &amp; sharing)</h2>
+    <p class="sub">${S.remote ? "Download a copy of everything as a backup. The shared Google Sheet also keeps its own version history." : S.local
       ? "Your data is saved in this browser on this device only. Download a data file regularly as a backup, and to move your stock list to another phone or computer (send it on WhatsApp or email, then open it there)."
       : "Download all articles, company details and versions as one file. Open it in the standalone Stock Catalogue Studio to keep working without Claude."}</p>
     <div class="row" style="margin-top:10px">
       <button class="btn solid" data-act="exportData" type="button">Download data file</button>
-      ${S.local ? `<label class="btn" for="importFile" style="cursor:pointer">Open data file</label><input type="file" id="importFile" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0">` : ""}
+      ${S.local && !S.remote ? `<label class="btn" for="importFile" style="cursor:pointer">Open data file</label><input type="file" id="importFile" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0">` : ""}
     </div>
     ${imp ? `<div class="notice" style="margin-top:12px"><p><b>Replace everything on this device with “${esc(imp.name)}”?</b> It has ${count} articles and ${Object.keys(imp.data.versions || {}).length} versions. What is on this device now will be overwritten; download a data file first if you want to keep it.</p>
       <div class="row"><button class="btn danger" data-act="importYes">Replace with this file</button><button class="btn ghost" data-act="cancel">Cancel</button></div></div>` : ""}
@@ -795,6 +916,10 @@ document.addEventListener("click", async (e) => {
   const act = b.dataset.act, firm = S.firm, sec = S.sections[S.sel], co = S.companies[firm];
   switch (act) {
     case "dismiss": noticeMsg = null; render(); break;
+    case "seedRemote": await seedRemote(); break;
+    case "useLocal": try { localStorage.setItem(MODE_KEY, "local"); } catch (e) { /* ignore */ } bootLocal(); break;
+    case "disconnect": try { localStorage.removeItem(REMOTE_KEY); localStorage.removeItem(MODE_KEY); } catch (e) { /* ignore */ } location.reload(); break;
+    case "syncNow": await pull(true); break;
     case "cancel": S.confirm = null; render(); break;
     case "openSec": S.sel = b.dataset.sec; S.q = ""; render(); break;
     case "newCat": S.confirm = { type: "newCat" }; render(); break;
@@ -921,7 +1046,7 @@ function validData(d) {
   return d && d.format === "stock-studio" && d.companies && d.sections && typeof d.companies === "object" && typeof d.sections === "object";
 }
 async function saveFile(blob, name) {
-  if (S.local) { localDownload(blob, name); return true; }
+  if (S.local || S.remote) { localDownload(blob, name); return true; }
   if (!S.dl) { notice("Saving files is not available in this view. Open the page on claude.ai to download.", true); return false; }
   try { await S.dl.save({ filename: name, data: blob }); return true; }
   catch (e) { if (e.code !== "declined") notice(`Download did not start (${e.code}).`, true); return false; }
@@ -942,7 +1067,10 @@ async function doExport(asVersion) {
       const v = { company: firm, number, note: S.note.trim(), createdAt: now.toISOString(), articleCount: articles, pages, assetId, assetUrl, snapshot: snap };
       const id = `${firm}--v${number}`;
       S.versions[id] = v;
-      if (S.local) saveLocal(); else if (!S.test) await S.db.collection("versions").doc(id).set(v);
+      try {
+      if (S.remote) await remoteSave("versions", id, v);
+      else if (S.local) saveLocal(); else if (!S.test) await S.db.collection("versions").doc(id).set(v);
+      } catch (err) { delete S.versions[id]; throw err; }
       S.note = "";
     }
     S.busy = ""; S.exportOpen = !asVersion ? S.exportOpen : false;
@@ -952,6 +1080,7 @@ async function doExport(asVersion) {
   } catch (e) { S.busy = ""; notice(`Export failed: ${e.message || e.code}`, true); }
 }
 async function downloadVersion(id) {
+  try { await ensureSnapshot(id); } catch (e) { notice(`Could not load version: ${e.message}`, true); return; }
   const v = S.versions[id]; if (!v) return;
   let blob = null;
   if (v.assetUrl || v.assetId) { try { const r = await fetch(v.assetUrl || "/_blob/" + v.assetId); if (r.ok) blob = await r.blob(); } catch (e) { blob = null; } }
@@ -962,6 +1091,7 @@ async function downloadVersion(id) {
   await savePdf(blob, fileName(v.snapshot.company, v.number));
 }
 async function restoreVersion(id) {
+  try { await ensureSnapshot(id); } catch (e) { notice(`Could not load version: ${e.message}`, true); return; }
   const v = S.versions[id]; if (!v) return;
   const firm = v.company;
   S.confirm = null;
@@ -978,15 +1108,12 @@ async function restoreVersion(id) {
 window.__studio = { buildPdf, S, render };
 (async function boot() {
   if (window.__SEED__) {
-    S.local = true;
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(LOCAL_KEY) || "null"); } catch (e) { saved = null; }
-    const src = validData(saved) ? saved : window.__SEED__;
-    Object.assign(S.companies, structuredClone(src.companies)); Object.assign(S.sections, structuredClone(src.sections));
-    Object.assign(S.versions, structuredClone(src.versions || {}));
-    try { navigator.storage?.persist?.(); } catch (e) { /* optional */ }
-    S.ready = true; render(); status(validData(saved) ? "Saved on this device" : "Starting data loaded");
-    return;
+    const cfg = readCfg();
+    if (window.__API_URL__) cfg.url = window.__API_URL__;
+    let mode = null; try { mode = localStorage.getItem(MODE_KEY); } catch (e) { mode = null; }
+    if (mode === "local" && !window.__API_URL__) { bootLocal(); return; }
+    if (cfg.url && cfg.key) { bootRemote(cfg); return; }
+    connectScreen(); return;
   }
   if (window.__TEST_DATA__) {
     S.test = true; Object.assign(S.companies, window.__TEST_DATA__.companies); Object.assign(S.sections, window.__TEST_DATA__.sections);
@@ -998,4 +1125,16 @@ window.__studio = { buildPdf, S, render };
   if (!db) { $("#boot").innerHTML = `<h2>Sign in to see the catalogue</h2><p>The stock data loads for signed-in members who have access to this page.</p>`; return; }
   S.db = db; subscribe();
 })();
+function bootLocal() {
+  {
+    S.local = true;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LOCAL_KEY) || "null"); } catch (e) { saved = null; }
+    const src = validData(saved) ? saved : window.__SEED__;
+    Object.assign(S.companies, structuredClone(src.companies)); Object.assign(S.sections, structuredClone(src.sections));
+    Object.assign(S.versions, structuredClone(src.versions || {}));
+    try { navigator.storage?.persist?.(); } catch (e) { /* optional */ }
+    S.ready = true; render(); status(validData(saved) ? "Saved on this device" : "Starting data loaded");
+  }
+}
 </script>
