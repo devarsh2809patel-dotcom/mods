@@ -1,0 +1,1 @@
+"""Stock catalogue & management system."""

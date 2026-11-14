@@ -1,0 +1,6 @@
+data/inventory.db
+data/backups/
+data/imports/
+output/
+__pycache__/
+*.pyc

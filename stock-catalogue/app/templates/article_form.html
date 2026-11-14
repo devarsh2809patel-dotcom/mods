@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add' if is_new else 'Edit' }} article - Stock Manager{% endblock %}
+{% block body %}
+<h1>{{ 'Add a stock article' if is_new else 'Edit article' }}</h1>
+<form method="post" class="card">
+  {% if not is_new %}<input type="hidden" name="next" value="{{ next or '' }}">{% endif %}
+  <div class="fields">
+    <div>
+      <label>Company</label>
+      {% if is_new %}
+        {% for c in companies %}<label style="font-weight:400;display:flex;gap:6px;align-items:center"><input type="checkbox" name="company_id" value="{{ c.id }}" {{ 'checked' if c.id in sel_companies }}> {{ c.name }}</label>{% endfor %}
+        <span class="hint">Tick both to add the article to both firms.</span>
+      {% else %}
+        <select name="company_id">{% for c in companies %}<option value="{{ c.id }}" {{ 'selected' if c.id in sel_companies }}>{{ c.name }}</option>{% endfor %}</select>
+      {% endif %}
+    </div>
+    <div>
+      <label for="category_id">Category</label>
+      <select name="category_id" id="category_id" required>
+        <option value="">Choose...</option>
+        {% for c in categories_all %}<option value="{{ c.id }}" {{ 'selected' if (a.category_id|string)==(c.id|string) }}>{{ c.name }}</option>{% endfor %}
+      </select>
+      <span class="hint">Missing a category (e.g. Channels)? Add it below.</span>
+    </div>
+    <div><label for="size">Size / dimensions <span class="hint">(mm) e.g. 40 x 20</span></label><input name="size" id="size" value="{{ a.size or '' }}"></div>
+    <div><label for="thickness_mm">Thickness (mm)</label><input name="thickness_mm" id="thickness_mm" inputmode="decimal" value="{{ a.thickness_mm if a.thickness_mm is not none else '' }}"></div>
+    <div><label for="nominal_bore">Nominal bore <span class="hint">(pipes) e.g. 25 mm (1")</span></label><input name="nominal_bore" id="nominal_bore" value="{{ a.nominal_bore or '' }}"></div>
+    <div><label for="od_mm">Outside diameter (mm)</label><input name="od_mm" id="od_mm" inputmode="decimal" value="{{ a.od_mm if a.od_mm is not none else '' }}"></div>
+    <div><label for="pipe_class">Pipe class</label><select name="pipe_class" id="pipe_class">{% for k in ['', 'L', 'M', 'H'] %}<option value="{{ k }}" {{ 'selected' if (a.pipe_class or '')==k }}>{{ {'':'-','L':'L (Light)','M':'M (Medium)','H':'H (Heavy)'}[k] }}</option>{% endfor %}</select></div>
+    <div><label for="weight_kg_m">Weight (kg/m)</label><input name="weight_kg_m" id="weight_kg_m" inputmode="decimal" value="{{ a.weight_kg_m if a.weight_kg_m is not none else '' }}"></div>
+    <div><label for="weight_kg_pc">Weight (kg/pc)</label><input name="weight_kg_pc" id="weight_kg_pc" inputmode="decimal" value="{{ a.weight_kg_pc if a.weight_kg_pc is not none else '' }}"></div>
+    <div><label for="specification">Specification / standard</label><input name="specification" id="specification" value="{{ a.specification or '' }}" placeholder="e.g. IS 4923, E250"></div>
+    <div><label for="availability">Availability</label><select name="availability" id="availability">{% for k, v in AV.items() %}<option value="{{ k }}" {{ 'selected' if a.availability==k }}>{{ v }}</option>{% endfor %}</select></div>
+    <div><label for="quantity">Quantity in stock <span class="hint">(optional, internal)</span></label><input name="quantity" id="quantity" inputmode="decimal" value="{{ a.quantity if a.quantity is not none else '' }}"></div>
+    <div><label for="quantity_unit">Unit</label><input name="quantity_unit" id="quantity_unit" value="{{ a.quantity_unit or '' }}" placeholder="pcs, kg, tonnes"></div>
+    <div><label for="name">Article name <span class="hint">(blank = automatic)</span></label><input name="name" id="name" value="{{ a.name or '' }}"></div>
+    <div><label for="sku">Article code <span class="hint">(blank = automatic)</span></label><input name="sku" id="sku" value="{{ a.sku or '' }}"></div>
+  </div>
+  <div style="margin-top:12px"><label for="notes">Internal notes <span class="hint">(never printed in brochures)</span></label><textarea name="notes" id="notes" rows="2">{{ a.notes or '' }}</textarea></div>
+  {% if a.check_note %}<div class="warnbox">&#9888; Weight check: {{ a.check_note }}</div>{% endif %}
+  <div class="row" style="margin-top:14px">
+    <button class="btn primary">{{ 'Add article' if is_new else 'Save changes' }}</button>
+    <a class="btn" href="{{ url_for('articles') }}">Cancel</a>
+  </div>
+</form>
+{% if not is_new %}
+<form method="post" action="{{ url_for('article_delete', aid=aid) }}" class="card row" onsubmit="if(!confirm('Delete this article permanently?'))return false;this.confirm.value='yes';">
+  <input type="hidden" name="confirm" value=""><input type="hidden" name="next" value="{{ url_for('articles') }}">
+  <span>Discontinued? Remove this article from the inventory and future brochures.</span>
+  <button class="btn danger">Delete article</button>
+</form>
+{% endif %}
+<details class="card">
+  <summary><b>Add a new category</b> <span class="muted small">(e.g. Channels, Beams, Plates)</span></summary>
+  <form method="post" action="{{ url_for('category_new') }}" style="margin-top:12px">
+    <div class="fields">
+      <div><label>Category name</label><input name="name" required placeholder="Channels"></div>
+      <div><label>Code prefix</label><input name="prefix" required placeholder="CH" maxlength="6"></div>
+      <div><label>Item label</label><input name="item_label" placeholder="Channel"></div>
+      <div><label>Standard</label><input name="standard" placeholder="IS 2062"></div>
+    </div>
+    <div style="margin-top:10px"><label>Description</label><input name="description" style="width:100%"></div>
+    <div style="margin-top:10px"><label>Columns shown in brochure</label>
+      <div class="row">{% for k, v in [('size','Size'),('nominal_bore','Nominal bore'),('od_mm','OD'),('thickness_mm','Thickness'),('pipe_class','Class'),('weight_kg_m','Kg/m'),('weight_kg_pc','Kg/pc')] %}
+        <label style="font-weight:400;display:flex;gap:4px;align-items:center"><input type="checkbox" name="columns" value="{{ k }}" {{ 'checked' if k in ('size','weight_kg_m') }}> {{ v }}</label>{% endfor %}</div>
+    </div>
+    <button class="btn primary" style="margin-top:10px">Add category</button>
+  </form>
+</details>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Brochures - Stock Manager{% endblock %}
+{% block body %}
+<div class="row" style="justify-content:space-between">
+  <h1>Brochures</h1>
+  <form method="post" action="{{ url_for('brochures_generate') }}"><input type="hidden" name="company" value="all"><input type="hidden" name="kind" value="both"><button class="btn primary">Generate both firms</button></form>
+</div>
+<p class="muted">Each generation saves a new dated file, so earlier versions are kept. The "LATEST" file is always the newest.</p>
+<div class="grid">
+{% for x in info %}
+<section class="card">
+  <h2>{{ x.c.name }}</h2>
+  <p class="small">Last PDF: {% if x.last %}<b>{{ x.last.created_at }}</b> ({{ x.last.article_count }} articles){% else %}<b>never</b>{% endif %}
+  · Last web catalogue: {{ x.last_web.created_at if x.last_web else 'never' }}</p>
+  {% if not x.usable %}<div class="warnbox">No contact with a valid WhatsApp number. Add one under company details first.</div>{% endif %}
+  <div class="row" style="margin-bottom:10px">
+    <a class="btn" target="_blank" href="{{ url_for('preview_pdf', slug=x.c.slug) }}">Preview PDF</a>
+    <a class="btn" target="_blank" href="{{ url_for('preview_web', slug=x.c.slug) }}">Preview web catalogue</a>
+  </div>
+  <div class="row">
+    {% for kind, label in [('pdf','Generate PDF'),('web','Generate web catalogue'),('both','Generate both')] %}
+    <form method="post" action="{{ url_for('brochures_generate') }}"><input type="hidden" name="company" value="{{ x.c.slug }}"><input type="hidden" name="kind" value="{{ kind }}"><button class="btn {{ 'primary' if kind=='both' }}">{{ label }}</button></form>
+    {% endfor %}
+  </div>
+  <h3 class="small muted" style="margin:16px 0 6px">Saved versions</h3>
+  {% for f in x.files %}
+    <div class="row small" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:4px 0">
+      <span>{{ f.split('/')[-1] }}</span>
+      <span><a href="{{ url_for('files', fname=f) }}" target="_blank">Open</a> · <a href="{{ url_for('files', fname=f, dl=1) }}">Download</a></span>
+    </div>
+  {% else %}<p class="small muted">None yet.</p>{% endfor %}
+</section>
+{% endfor %}
+</div>
+{% endblock %}

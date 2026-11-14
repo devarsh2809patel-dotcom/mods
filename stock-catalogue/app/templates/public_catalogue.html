@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ co.name }} - Stock Catalogue</title>
+<meta name="description" content="{{ co.name }} stock catalogue. Stock position as on {{ ctx.generated_label }}.">
+<style>
+:root{--p:{{ co.primary_color }};--a:{{ co.accent_color }};--ink:#1f242b;--mut:#6b7280;--line:#dfe3e8;--bg:#f5f6f8;--card:#fff;
+--g:#1e8e3e;--r:#c62828;--n-bg:#e7e9ed;--n-tx:#4a5058;--wa:#1da851}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Calibri,Carlito,sans-serif;color:var(--ink);background:var(--bg)}
+a{color:inherit}
+header.top{background:var(--p);color:#fff;padding:22px 16px 18px}
+.wrap{max-width:1100px;margin:0 auto}
+.eyebrow{color:var(--a);font-weight:700;letter-spacing:.2em;font-size:12px}
+h1{margin:4px 0 0;font-size:32px;line-height:1.1}
+.tag{color:var(--a);font-weight:700;margin-top:4px}
+.asof{opacity:.75;font-size:13px;margin-top:8px}
+.tools{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.tools .wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools input[type=search]{flex:1 1 260px;min-width:0;font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px}
+.tools input[type=search]:focus{outline:none;border-color:var(--p)}
+.tools select{font:inherit;padding:9px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;max-width:100%}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line)}
+.chips a{white-space:nowrap;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--p)}
+.chips a:hover{background:var(--bg)}
+main{padding:8px 16px 140px}
+section.cat{margin:22px 0}
+section.cat h2{margin:0;font-size:22px;color:var(--p);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+section.cat h2 small{font-size:13px;color:var(--mut);font-weight:400}
+.desc{color:var(--mut);font-size:13px;margin:2px 0 10px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+th{background:var(--p);color:#fff;text-align:left;font-size:12px;font-weight:700;padding:8px;white-space:nowrap}
+td{padding:6px 8px;border-top:1px solid #eef0f3;font-size:14px;vertical-align:middle}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.code{color:var(--mut);font-size:12px;white-space:nowrap}
+td.size{font-weight:700}
+tr.band td{background:#f7f8fa}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap;letter-spacing:.02em}
+.pill.available{background:var(--g);color:#fff}.pill.out_of_stock{background:var(--r);color:#fff}.pill.unconfirmed{background:var(--n-bg);color:var(--n-tx)}
+.acts{white-space:nowrap;text-align:right}
+.btn{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:5px 11px;border:1.5px solid var(--p);background:#fff;color:var(--p);cursor:pointer;text-decoration:none}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:#fff}
+.btn:focus-visible{outline:3px solid var(--a);outline-offset:1px}
+.empty{display:none;padding:30px;text-align:center;color:var(--mut)}
+footer.cta{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:3px solid var(--a);padding:10px 16px;box-shadow:0 -2px 10px rgba(0,0,0,.06);z-index:6}
+footer.cta .wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+footer.cta strong{color:var(--p);margin-right:6px}
+.info{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}
+.info div{background:#fff;border-radius:10px;padding:12px 14px;font-size:13px}
+.info b{color:var(--p);display:block;margin-bottom:3px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+@media (max-width:720px){
+  table,thead,tbody,tr,td{display:block}
+  thead{display:none}
+  tr{border-top:1px solid var(--line);padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+  td{border:0;padding:0}
+  td.size{grid-column:1}
+  td.code{grid-column:1;order:3}
+  td.dat{display:inline;font-size:13px;color:var(--mut)}
+  td.dat::before{content:attr(data-label) ": "}
+  td.st{grid-column:2;grid-row:1}
+  td.acts{grid-column:1/-1;text-align:left;margin-top:4px}
+  tr.band td{background:none}
+  h1{font-size:26px}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="eyebrow">STOCK CATALOGUE</div>
+  <h1>{{ co.name }}</h1>
+  <div class="tag">{{ co.tagline }}</div>
+  <div class="asof">Stock position as on {{ ctx.generated_label }} · {{ ctx.total }} articles</div>
+</div></header>
+
+<div class="tools"><div class="wrap">
+  <input id="q" type="search" placeholder="Search size, code or product, e.g. 50x50, 25 NB, angle 40" aria-label="Search the catalogue" autocomplete="off">
+  <select id="av" aria-label="Filter by availability">
+    <option value="">All availability</option>
+    <option value="available">Available</option>
+    <option value="out_of_stock">Out of stock</option>
+    <option value="unconfirmed">Unconfirmed</option>
+  </select>
+  <select id="who" aria-label="Send WhatsApp enquiries to">
+    {% for c in ctx.contacts %}<option value="{{ c.digits }}">WhatsApp: {{ c.name }}</option>{% endfor %}
+  </select>
+</div></div>
+<nav class="chips" aria-label="Categories">
+  {% for s in ctx.sections %}<a href="#{{ s.key }}">{{ s.short }}</a>{% endfor %}
+</nav>
+
+<main><div class="wrap">
+  <div class="info">
+    <div><b>Search</b>Type in the box above. Matches sizes with or without spaces (50x50 or 50 x 50).</div>
+    <div><b>Availability</b><span class="pill available">AVAILABLE</span> <span class="pill out_of_stock">OUT OF STOCK</span> <span class="pill unconfirmed">UNCONFIRMED</span><br>Unconfirmed means ask us.</div>
+    <div><b>Enquire</b>Tap WhatsApp on any row: the article details are filled in. Or tap Copy and paste anywhere.</div>
+  </div>
+  {% for s in ctx.sections %}
+  <section class="cat" id="{{ s.key }}">
+    <h2>{{ s.title }} <small>{% if s.standard %}{{ s.standard }} · {% endif %}{{ s.rows|length }} articles</small></h2>
+    <div class="desc">{{ s.description }}</div>
+    <table>
+      <thead><tr><th>Article code</th>{% for t in s.column_titles %}<th class="{{ 'num' if s.columns[loop.index0] in ('weight_kg_m','weight_kg_pc','thickness_mm','od_mm') else '' }}">{{ t }}</th>{% endfor %}<th>Availability</th><th></th></tr></thead>
+      <tbody>
+      {% for it in s.rows %}
+        <tr class="{{ 'band' if it.band else '' }}" data-s="{{ it.search }}" data-av="{{ it.availability }}" data-i="{{ it.id }}">
+          <td class="code">{{ it.sku }}</td>
+          {% for c in s.columns %}
+            {% set num = c in ('weight_kg_m','weight_kg_pc','thickness_mm','od_mm') %}
+            <td class="{{ 'size' if c in ('size','nominal_bore') else 'dat' }}{{ ' num' if num else '' }}" data-label="{{ s.column_titles[loop.index0] }}">{{ it.cells[c] }}</td>
+          {% endfor %}
+          <td class="st"><span class="pill {{ it.availability }}">{{ it.status }}</span></td>
+          <td class="acts"><button class="btn cp" type="button">Copy</button> <a class="btn wa" target="_blank" rel="noopener" href="{{ it.wa }}">WhatsApp</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+  <div class="empty" id="empty">No articles match your search. Try fewer words, or ask us on WhatsApp below.</div>
+  <div class="info">
+    {% for a in ctx.addresses %}<div><b>{{ a.label }}</b>{{ a.text }}</div>{% endfor %}
+    {% if co.email %}<div><b>Email</b><a href="mailto:{{ co.email }}">{{ co.email }}</a></div>{% endif %}
+  </div>
+  <p class="desc">Weights are as per standard section tables and are indicative. Kg/pc is for a 6 m length. Availability and prices are confirmed on enquiry.</p>
+</div></main>
+
+<footer class="cta"><div class="wrap">
+  <strong>{{ co.footer_cta }}</strong>
+  {% for c in ctx.contacts %}<a class="btn wa" target="_blank" rel="noopener" href="{{ c.wa }}">{{ c.name }} · {{ c.phone }}</a>{% endfor %}
+</div></footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const MSG = {{ messages|safe }};
+const q = document.getElementById('q'), av = document.getElementById('av'), who = document.getElementById('who');
+const rows = [...document.querySelectorAll('tr[data-s]')];
+function norm(s){return s.toLowerCase().replace(/[×*]/g,'x').replace(/\s*x\s*/g,'x').replace(/\s+/g,' ').trim();}
+rows.forEach(r => r.dataset.n = norm(r.dataset.s));
+function filter(){
+  const terms = norm(q.value).split(' ').filter(Boolean), a = av.value; let shown = 0;
+  rows.forEach(r => { const ok = (!a || r.dataset.av === a) && terms.every(t => r.dataset.n.includes(t));
+    r.style.display = ok ? '' : 'none'; if (ok) shown++; });
+  document.querySelectorAll('section.cat').forEach(s => {
+    s.style.display = [...s.querySelectorAll('tr[data-s]')].some(r => r.style.display !== 'none') ? '' : 'none'; });
+  document.getElementById('empty').style.display = shown ? 'none' : 'block';
+}
+q.addEventListener('input', filter); av.addEventListener('change', filter);
+function relink(){
+  const d = who.value;
+  rows.forEach(r => { r.querySelector('a.wa').href = 'https://wa.me/' + d + '?text=' + encodeURIComponent(MSG[r.dataset.i].msg); });
+}
+who.addEventListener('change', relink);
+function toast(t){const e=document.getElementById('toast'); e.textContent=t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),1600);}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button.cp'); if (!b) return;
+  const text = MSG[b.closest('tr').dataset.i].copy;
+  try { await navigator.clipboard.writeText(text); toast('Copied - paste it into WhatsApp'); }
+  catch (err) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove(); toast('Copied'); }
+});
+</script>
+</body>
+</html>

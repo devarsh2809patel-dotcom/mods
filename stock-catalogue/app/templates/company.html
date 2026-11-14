@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ c.name }} - Stock Manager{% endblock %}
+{% block body %}
+<h1>{{ c.name }}: company details</h1>
+<p class="muted">These details are printed on this firm's brochure only. The other firm is never affected.</p>
+<form method="post">
+<section class="card">
+  <h2>Identity</h2>
+  <div class="fields">
+    <div><label>Company name</label><input name="name" value="{{ c.name }}" required></div>
+    <div><label>Tagline</label><input name="tagline" value="{{ c.tagline }}"></div>
+    <div><label>Email</label><input name="email" type="email" value="{{ c.email }}"></div>
+    <div><label>Website <span class="hint">(optional)</span></label><input name="website" value="{{ c.website }}"></div>
+    <div><label>Brand colour</label><input class="swatch" type="color" name="primary_color" value="{{ c.primary_color }}"></div>
+    <div><label>Accent colour</label><input class="swatch" type="color" name="accent_color" value="{{ c.accent_color }}"></div>
+  </div>
+  <div style="margin-top:12px"><label>Footer call-to-action (every page)</label><input name="footer_cta" value="{{ c.footer_cta }}" style="width:100%"></div>
+</section>
+<section class="card">
+  <h2>Addresses</h2>
+  <p class="hint">Leave the text empty to keep a placeholder; empty addresses are not printed.</p>
+  {% for a in addrs %}
+  <div class="fields" style="grid-template-columns:180px 1fr;margin-bottom:8px">
+    <input name="addr_label" value="{{ a.label }}" aria-label="Address label">
+    <input name="addr_text" value="{{ a.text }}" aria-label="Address" placeholder="Address to be provided">
+  </div>
+  {% endfor %}
+  {% for i in range(2) %}
+  <div class="fields" style="grid-template-columns:180px 1fr;margin-bottom:8px">
+    <input name="addr_label" placeholder="New label (e.g. Branch)" aria-label="New address label">
+    <input name="addr_text" placeholder="Address" aria-label="New address">
+  </div>
+  {% endfor %}
+  <p class="hint">To remove an address, clear its label.</p>
+</section>
+<section class="card">
+  <h2>Contact persons &amp; WhatsApp numbers</h2>
+  <p class="hint">Enter mobile numbers with country code (+91 ...). A 10-digit number is treated as Indian. Contacts without a valid number stay as placeholders and are not printed. The <b>main enquiry contact</b> receives the per-article "Enquire" WhatsApp messages; every valid contact appears in the footer of every page.</p>
+  <table class="list">
+    <thead><tr><th>Main</th><th>Name</th><th>Mobile / WhatsApp</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for ct in contacts %}
+      <tr>
+        <td><input type="radio" name="primary_contact" value="{{ loop.index0 }}" {{ 'checked' if ct.is_primary }} aria-label="Main enquiry contact"></td>
+        <td><input name="ct_name" value="{{ ct.name }}" aria-label="Name"></td>
+        <td><input name="ct_phone" value="{{ ct.phone }}" placeholder="+91 ....." aria-label="Phone"></td>
+        <td>{% if ct.is_placeholder %}<span class="pill unconfirmed">PLACEHOLDER</span>{% else %}<a href="https://wa.me/{{ ct.phone|replace(' ','')|replace('+','') }}" target="_blank">test WhatsApp link</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+      {% set n = contacts|length %}
+      <tr>
+        <td><input type="radio" name="primary_contact" value="{{ n }}" aria-label="Main enquiry contact"></td>
+        <td><input name="ct_name" placeholder="New contact name" aria-label="New contact name"></td>
+        <td><input name="ct_phone" placeholder="+91 ....." aria-label="New contact phone"></td><td></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="hint">To remove a contact, clear the name.</p>
+</section>
+<div class="row"><button class="btn primary">Save details</button></div>
+</form>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Inventory dashboard</h1>
+<div class="grid">
+{% for d in cards %}
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">{{ d.c.name }}</h2>
+      <a class="btn sm" href="{{ url_for('company_edit', slug=d.c.slug) }}">Company details</a>
+    </div>
+    <div class="stats">
+      <a class="stat" href="{{ url_for('articles', company=d.c.id) }}"><b>{{ d.s.total }}</b><span>Total articles</span></a>
+      <a class="stat g" href="{{ url_for('articles', company=d.c.id, availability='available') }}"><b>{{ d.s.available }}</b><span>Available</span></a>
+      <a class="stat r" href="{{ url_for('articles', company=d.c.id, availability='out_of_stock') }}"><b>{{ d.s.out_of_stock }}</b><span>Out of stock</span></a>
+      <a class="stat n" href="{{ url_for('articles', company=d.c.id, availability='unconfirmed') }}"><b>{{ d.s.unconfirmed }}</b><span>Availability to confirm</span></a>
+      <a class="stat w" href="{{ url_for('articles', company=d.c.id, flagged=1) }}"><b>{{ d.s.flagged }}</b><span>Data to check</span></a>
+    </div>
+    {% if d.placeholders %}<div class="warnbox">Placeholders not yet filled (hidden from brochures): {{ d.placeholders|join(', ') }}. <a href="{{ url_for('company_edit', slug=d.c.slug) }}">Fill in</a></div>{% endif %}
+    {% if d.s.unconfirmed %}<div class="warnbox">{{ d.s.unconfirmed }} articles still show UNCONFIRMED in the customer brochure. Set availability before sending it out.</div>{% endif %}
+    <div class="catlist">
+      <div class="muted small">Category</div><div class="muted small">Articles</div><div class="muted small">Available</div><div class="muted small">Out</div>
+      {% for x in d.cats %}
+        <div><a href="{{ url_for('articles', company=d.c.id, category=x.cat.id) }}">{{ x.cat.name }}</a></div><div>{{ x.total }}</div><div>{{ x.available }}</div><div>{{ x.out }}</div>
+      {% endfor %}
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <div class="row" style="justify-content:space-between">
+      <div class="small">
+        Last PDF: {% if d.last %}<b>{{ d.last.created_at }}</b> ({{ d.last.article_count }} articles){% else %}<b>never generated</b>{% endif %}<br>
+        Last web catalogue: {% if d.last_web %}{{ d.last_web.created_at }}{% else %}never{% endif %}
+      </div>
+      <form method="post" action="{{ url_for('brochures_generate') }}" class="row">
+        <input type="hidden" name="company" value="{{ d.c.slug }}"><input type="hidden" name="kind" value="both">
+        <a class="btn" href="{{ url_for('preview_pdf', slug=d.c.slug) }}" target="_blank">Preview</a>
+        <button class="btn primary">Generate brochure</button>
+      </form>
+    </div>
+  </section>
+{% endfor %}
+</div>
+<section class="card row" style="justify-content:space-between">
+  <div>Generate both firms' PDF and web catalogues with the latest stock data.</div>
+  <form method="post" action="{{ url_for('brochures_generate') }}"><input type="hidden" name="company" value="all"><input type="hidden" name="kind" value="both"><button class="btn primary">Generate both</button></form>
+</section>
+{% endblock %}

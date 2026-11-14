@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Import - Stock Manager{% endblock %}
+{% block body %}
+<h1>Import stock articles</h1>
+{% if not plan %}
+<section class="card">
+  <h2>1. Get the template</h2>
+  <div class="row"><a class="btn" href="{{ url_for('import_template', ext='xlsx') }}">Excel template (.xlsx)</a>
+  <a class="btn" href="{{ url_for('import_template', ext='csv') }}">CSV template</a>
+  <a class="btn" href="{{ url_for('export_csv') }}">Export current inventory (CSV)</a></div>
+  <ul class="small muted">
+    <li><b>New article:</b> fill company (<code>{{ companies|map(attribute='slug')|join('</code>, <code>')|safe }}</code> or <code>both</code>), category and size. Leave article_code blank.</li>
+    <li><b>Update existing:</b> put its article_code and only the columns you want to change. Blank cells keep the current value. Type <code>CLEAR</code> to empty a field.</li>
+    <li>Tip: export the current inventory, change availability in Excel, and import it back.</li>
+  </ul>
+</section>
+<section class="card">
+  <h2>2. Upload and check</h2>
+  <form method="post" enctype="multipart/form-data" class="row">
+    <input type="file" name="file" accept=".csv,.xlsx" required>
+    <button class="btn primary">Check file</button>
+  </form>
+  <p class="small muted">Nothing is saved until you confirm on the next screen.</p>
+</section>
+{% else %}
+<section class="card">
+  <h2>Check before importing: {{ filename }}</h2>
+  <div class="stats">
+    <div class="stat g"><b>{{ counts.new }}</b><span>New</span></div>
+    <div class="stat"><b>{{ counts.update }}</b><span>Updates</span></div>
+    <div class="stat n"><b>{{ counts.unchanged }}</b><span>No change</span></div>
+    <div class="stat r"><b>{{ counts.error }}</b><span>Errors (skipped)</span></div>
+  </div>
+  {% if unknown %}<div class="warnbox">Ignored unknown columns: {{ unknown|join(', ') }}</div>{% endif %}
+  <form method="post" action="{{ url_for('import_confirm') }}" class="row">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="btn primary" {{ 'disabled' if not (counts.new or counts.update) }}>Import {{ counts.new }} new + {{ counts.update }} updates</button>
+    <a class="btn" href="{{ url_for('import_page') }}">Cancel</a>
+    <span class="small muted">A backup of the database is saved first.</span>
+  </form>
+</section>
+<div class="card tablewrap" style="padding:0">
+<table class="list">
+  <thead><tr><th>Row</th><th>Result</th><th>Company</th><th>Code</th><th>Article</th><th>Details</th></tr></thead>
+  <tbody>
+  {% for p in plan %}
+    <tr><td>{{ p.row }}</td><td class="act-{{ p.action }}">{{ p.action|upper }}</td><td class="small">{{ p.company }}</td>
+      <td class="small muted">{{ p.sku }}</td><td>{{ p.name }}</td>
+      <td class="small">{% if p.error %}<span class="act-error">{{ p.error }}</span>{% endif %}
+        {% for ch in p.changes or [] %}<div>{{ ch }}</div>{% endfor %}
+        {% if p.warning %}<div class="flag">&#9888; {{ p.warning }}</div>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

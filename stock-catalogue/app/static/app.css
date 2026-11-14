@@ -1,0 +1,54 @@
+:root{--p:#13294b;--a:#e8a33d;--ink:#1f242b;--mut:#6b7280;--line:#e1e5ea;--bg:#f4f6f9;--card:#fff;
+--g:#1e8e3e;--r:#c62828;--n-bg:#e7e9ed;--n-tx:#4a5058;--warn:#b26a00;--warn-bg:#fff4e0}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+a{color:var(--p)}
+.nav{background:var(--p);color:#fff;display:flex;gap:4px;align-items:center;padding:0 16px;flex-wrap:wrap}
+.nav .brand{font-weight:800;margin-right:16px;padding:12px 0;letter-spacing:.02em}
+.nav a{color:#fff;text-decoration:none;padding:12px 10px;opacity:.85;border-bottom:3px solid transparent}
+.nav a.on,.nav a:hover{opacity:1;border-bottom-color:var(--a)}
+main{max-width:1240px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:4px 0 16px;color:var(--p)}
+h2{font-size:18px;margin:0 0 10px;color:var(--p)}
+.card{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.06);margin-bottom:16px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:10px 0 14px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-decoration:none;color:inherit;display:block}
+.stat:hover{border-color:var(--p)}
+.stat b{display:block;font-size:24px;line-height:1.1}
+.stat span{color:var(--mut);font-size:12px}
+.stat.g b{color:var(--g)}.stat.r b{color:var(--r)}.stat.n b{color:var(--n-tx)}.stat.w b{color:var(--warn)}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:8px}
+.flash.ok{background:#e6f4ea;color:#14532d}.flash.error{background:#fde8e8;color:#7f1d1d}
+.warnbox{background:var(--warn-bg);color:#6b4200;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:13px}
+.muted{color:var(--mut)}.small{font-size:12px}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill.available{background:var(--g);color:#fff}.pill.out_of_stock{background:var(--r);color:#fff}.pill.unconfirmed{background:var(--n-bg);color:var(--n-tx)}
+.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-weight:600;border-radius:8px;padding:7px 13px;border:1.5px solid var(--p);background:#fff;color:var(--p);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn.primary{background:var(--p);color:#fff}
+.btn.danger{border-color:var(--r);color:var(--r)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.btn:hover{filter:brightness(.95)}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--a);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+form.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1.5px solid var(--line);border-radius:8px;background:#fff;max-width:100%}
+textarea{width:100%}
+label{font-weight:600;font-size:13px;display:block;margin-bottom:3px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px}
+.fields input,.fields select{width:100%}
+.hint{font-weight:400;color:var(--mut);font-size:12px}
+.tablewrap{overflow-x:auto}
+table.list{width:100%;border-collapse:collapse;background:#fff}
+table.list th{text-align:left;font-size:12px;color:var(--mut);font-weight:700;padding:8px;border-bottom:2px solid var(--line);white-space:nowrap;position:sticky;top:0;background:#fff}
+table.list td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.list tr:hover td{background:#fafbfc}
+td .flag{color:var(--warn);font-size:12px}
+.bulkbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;box-shadow:0 -2px 8px rgba(0,0,0,.05);z-index:2}
+.catlist{display:grid;grid-template-columns:1fr auto auto auto;gap:2px 14px;font-size:13px}
+.catlist div:nth-child(4n+2),.catlist div:nth-child(4n+3),.catlist div:nth-child(4n+4){text-align:right;font-variant-numeric:tabular-nums}
+.act-new{color:var(--g);font-weight:700}.act-update{color:var(--p);font-weight:700}.act-error{color:var(--r);font-weight:700}.act-unchanged{color:var(--mut)}
+iframe.preview{width:100%;height:80vh;border:1px solid var(--line);border-radius:8px;background:#fff}
+.swatch{width:46px;height:34px;padding:2px}
+@media (max-width:640px){.nav .brand{width:100%;padding-bottom:0}.nav a{padding:8px}}

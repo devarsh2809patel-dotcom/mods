@@ -1,0 +1,5 @@
+flask>=3.0
+reportlab>=4.0
+openpyxl>=3.1
+# only needed to run qa/run_qa.py
+pypdf>=4.0

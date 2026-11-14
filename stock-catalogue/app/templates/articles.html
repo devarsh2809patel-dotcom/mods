@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Articles - Stock Manager{% endblock %}
+{% block body %}
+<div class="row" style="justify-content:space-between">
+  <h1>Articles <span class="muted small">({{ rows|length }} shown)</span></h1>
+  <div class="row">
+    <a class="btn" href="{{ url_for('export_csv', company=f.company or '') }}">Export CSV</a>
+    <a class="btn primary" href="{{ url_for('article_new', company=f.company or '', category=f.category or '') }}">+ Add article</a>
+  </div>
+</div>
+<form class="filters" method="get">
+  <select name="company" aria-label="Company"><option value="">All companies</option>
+    {% for c in companies %}<option value="{{ c.id }}" {{ 'selected' if f.company==c.id }}>{{ c.name }}</option>{% endfor %}</select>
+  <select name="category" aria-label="Category"><option value="">All categories</option>
+    {% for c in categories_all %}<option value="{{ c.id }}" {{ 'selected' if f.category==c.id }}>{{ c.name }}</option>{% endfor %}</select>
+  <select name="availability" aria-label="Availability"><option value="">Any availability</option>
+    {% for k, v in AV.items() %}<option value="{{ k }}" {{ 'selected' if f.availability==k }}>{{ v }}</option>{% endfor %}</select>
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Search code, size, name (e.g. 50x50)" aria-label="Search">
+  <label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:400"><input type="checkbox" name="flagged" value="1" {{ 'checked' if f.flagged }}> Needs data check</label>
+  <button class="btn primary">Filter</button>
+  <a class="btn" href="{{ url_for('articles') }}">Reset</a>
+</form>
+
+<form method="post" action="{{ url_for('articles_bulk') }}" id="bulk">
+<input type="hidden" name="next" value="{{ request.full_path }}">
+<div class="card tablewrap" style="padding:0">
+<table class="list">
+  <thead><tr>
+    <th><input type="checkbox" id="all" aria-label="Select all"></th>
+    <th>Company</th><th>Category</th><th>Code</th><th>Article</th><th class="num">Thk</th><th class="num">Kg/m</th><th class="num">Kg/pc</th><th>Qty</th><th>Availability</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for a in rows %}
+    <tr>
+      <td><input type="checkbox" name="ids" value="{{ a.id }}" aria-label="Select {{ a.sku }}"></td>
+      <td class="small">{{ a.company_name }}</td>
+      <td class="small">{{ a.category_name }}</td>
+      <td class="small muted" style="white-space:nowrap">{{ a.sku }}</td>
+      <td>{{ a.name }}
+        {% if a.check_note %}<div class="flag">&#9888; {{ a.check_note }}</div>{% endif %}
+        {% if a.notes %}<div class="flag">&#9998; {{ a.notes }}</div>{% endif %}</td>
+      <td class="num">{{ '%.1f'|format(a.thickness_mm) if a.thickness_mm is not none else '' }}</td>
+      <td class="num">{{ '%.2f'|format(a.weight_kg_m) if a.weight_kg_m else '' }}</td>
+      <td class="num">{{ '%.2f'|format(a.weight_kg_pc) if a.weight_kg_pc else '' }}</td>
+      <td class="small">{{ ('%g'|format(a.quantity) ~ ' ' ~ a.quantity_unit) if a.quantity is not none else '' }}</td>
+      <td>
+        <select class="avsel" data-id="{{ a.id }}" aria-label="Availability of {{ a.sku }}">
+          {% for k, v in AV.items() %}<option value="{{ k }}" {{ 'selected' if a.availability==k }}>{{ v }}</option>{% endfor %}
+        </select>
+      </td>
+      <td><a class="btn sm" href="{{ url_for('article_edit', aid=a.id) }}">Edit</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="11" class="muted" style="padding:24px;text-align:center">No articles match these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="bulkbar">
+  <span id="selcount" class="muted">0 selected</span>
+  <span class="muted">Mark selected as:</span>
+  <button class="btn sm" name="action" value="available" style="border-color:var(--g);color:var(--g)">Available</button>
+  <button class="btn sm danger" name="action" value="out_of_stock">Out of stock</button>
+  <button class="btn sm" name="action" value="unconfirmed">Unconfirmed</button>
+  <span style="flex:1"></span>
+  <input type="hidden" name="confirm" id="bulkconfirm" value="">
+  <button class="btn sm danger" name="action" value="delete" id="bulkdel">Delete selected</button>
+</div>
+</form>
+<script>
+const boxes=[...document.querySelectorAll('input[name=ids]')];
+const upd=()=>document.getElementById('selcount').textContent=boxes.filter(b=>b.checked).length+' selected';
+document.getElementById('all').addEventListener('change',e=>{boxes.forEach(b=>b.checked=e.target.checked);upd();});
+boxes.forEach(b=>b.addEventListener('change',upd));
+document.getElementById('bulkdel').addEventListener('click',e=>{
+  const n=boxes.filter(b=>b.checked).length;
+  if(!n||!confirm('Permanently delete '+n+' article(s)? A backup of the database is saved first.')){e.preventDefault();return;}
+  document.getElementById('bulkconfirm').value='yes';
+});
+document.querySelectorAll('.avsel').forEach(s=>s.addEventListener('change',async()=>{
+  const body=new URLSearchParams({availability:s.value});
+  const r=await fetch('/articles/'+s.dataset.id+'/availability',{method:'POST',body,headers:{'X-Requested-With':'fetch'}});
+  s.style.outline=r.ok?'2px solid var(--g)':'2px solid var(--r)';setTimeout(()=>s.style.outline='',900);
+}));
+</script>
+{% endblock %}

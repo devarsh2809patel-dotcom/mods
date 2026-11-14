@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Stock Manager{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+<nav class="nav">
+  <span class="brand">Stock Manager</span>
+  {% set ep = request.endpoint %}
+  <a href="{{ url_for('dashboard') }}" class="{{ 'on' if ep=='dashboard' }}">Dashboard</a>
+  <a href="{{ url_for('articles') }}" class="{{ 'on' if ep in ('articles','article_edit') }}">Articles</a>
+  <a href="{{ url_for('article_new') }}" class="{{ 'on' if ep=='article_new' }}">+ Add article</a>
+  <a href="{{ url_for('import_page') }}" class="{{ 'on' if ep=='import_page' }}">Import</a>
+  <a href="{{ url_for('brochures') }}" class="{{ 'on' if ep=='brochures' }}">Brochures</a>
+  {% for c in companies %}<a href="{{ url_for('company_edit', slug=c.slug) }}" class="{{ 'on' if request.view_args and request.view_args.get('slug')==c.slug }}">{{ c.name }}</a>{% endfor %}
+</nav>
+<main>
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>
