@@ -12,6 +12,8 @@ A Claude Code plugin with personal subagents and workflows.
 | `plan-and-build` | skill | — | Runs planner, then hands its full plan to builder |
 | `dashboard` | skill + hooks | — | Live dashboard of every Claude Code event; starts by itself |
 
+A second plugin in this marketplace, `promptmaster`, is a Claude mod: a Promptmaster button above the chat input (and `/promptmaster <draft>`) that rewrites a rough draft into a clear prompt for you to review. It never answers the draft and never sends it. Two modes, pipeline and iterative, picked automatically or set with the Mode button; templates are editable in the plugin settings. Install: `/plugin install promptmaster --marketplace devarsh2809patel-dotcom/mods`. See `promptmaster/README.md`.
+
 Use the workflow with `/mods:plan-and-build <what to build>`.
 
 ## Install

@@ -1,5 +1,17 @@
 {
   "name": "mods",
-  "owner": { "name": "devarsh2809patel-dotcom" },
-  "plugins": [{ "name": "mods", "source": "./" }]
+  "owner": {
+    "name": "devarsh2809patel-dotcom"
+  },
+  "plugins": [
+    {
+      "name": "mods",
+      "source": "./"
+    },
+    {
+      "name": "promptmaster",
+      "source": "./promptmaster",
+      "description": "Rewrites your rough draft into a clear prompt (pipeline or iterative) for you to review. Never answers it, never auto-sends."
+    }
+  ]
 }

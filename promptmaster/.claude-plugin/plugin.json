@@ -1,0 +1,41 @@
+{
+  "name": "promptmaster",
+  "version": "0.1.0",
+  "description": "Rewrites your rough draft into a clear prompt (pipeline or iterative) for you to review before sending. Never answers it, never auto-sends.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "mode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "auto picks pipeline or iterative for you. The band's Mode button overrides this for the session.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "pipeline",
+        "iterative"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "title": "Rewrite model",
+      "description": "Model used for the rewrite (alias or full id).",
+      "default": "haiku"
+    },
+    "pipelineTemplate": {
+      "type": "string",
+      "title": "Pipeline template",
+      "description": "Output format for long or big tasks. Use plain section lines.",
+      "default": "Goal: <one sentence>\nContext: <what the AI needs to know>\nDeliverables: <exact files or outputs expected, with format>\nSteps: <ordered pipeline: 1. plan, 2. build, 3. check, 4. deliver>\nConstraints: <what to do and what to avoid>\nDone when: <checkable success criteria>\nQuestions: <anything unclear that the AI must ask me first>"
+    },
+    "iterativeTemplate": {
+      "type": "string",
+      "title": "Iterative template",
+      "description": "Output format for short follow-ups. Keep it short.",
+      "default": "Goal: <the one change wanted>\nScope: <what to touch and what to leave alone>\nCheck: <how I will know it worked>\n(Whole answer under 5 lines.)"
+    }
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Promptmaster"
+  }
+}
