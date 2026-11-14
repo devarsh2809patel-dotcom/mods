@@ -71,6 +71,44 @@ function pub_(d, full) {
   return { kind: d.kind, id: d.id, rev: d.rev, updatedAt: d.updatedAt, updatedBy: d.updatedBy, body: body };
 }
 
+/* ---------- readable view: one article per row ---------- */
+const VIEW = 'Articles (read-only)';
+const FIXED = [['size', 'Size (mm)'], ['nominal_bore', 'Nominal bore'], ['od_mm', 'OD (mm)'], ['thickness_mm', 'Thick (mm)'],
+  ['pipe_class', 'Class'], ['weight_kg_m', 'Kg/m'], ['weight_kg_pc', 'Kg/pc']];
+
+function rebuildView_(list) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sh = ss.getSheetByName(VIEW);
+    if (!sh) { sh = ss.insertSheet(VIEW, 0); sh.setFrozenRows(1); sh.protect().setWarningOnly(true); }
+    const names = {};
+    list.forEach(function (d) { if (d.kind === 'companies') { try { names[d.id] = JSON.parse(d.json).name; } catch (e) { names[d.id] = d.id; } } });
+    const keys = FIXED.map(function (f) { return f[0]; });
+    const secs = list.filter(function (d) { return d.kind === 'sections'; })
+      .map(function (d) { return JSON.parse(d.json); })
+      .sort(function (a, b) { return String(a.company).localeCompare(String(b.company)) || (a.order || 0) - (b.order || 0); });
+    const out = [['Company', 'Category', 'Article code'].concat(FIXED.map(function (f) { return f[1]; })).concat(['Other fields'])];
+    secs.forEach(function (s) {
+      (s.rows || []).forEach(function (r) {
+        const c = r.cells || {};
+        const other = (s.columns || []).filter(function (col) { return keys.indexOf(col.key) < 0 && c[col.key]; })
+          .map(function (col) { return col.label + ': ' + c[col.key]; }).join('; ');
+        out.push([names[s.company] || s.company, s.title, r.code].concat(keys.map(function (k) { return c[k] === undefined ? '' : String(c[k]); })).concat([other]));
+      });
+    });
+    sh.clearContents();
+    const range = sh.getRange(1, 1, out.length, out[0].length);
+    range.setNumberFormat('@');                 // keep values exactly as typed (2.00 stays 2.00)
+    range.setValues(out);
+    sh.getRange(1, 1, 1, out[0].length).setFontWeight('bold');
+  } catch (err) {
+    console.error('Articles view not updated: ' + err);   // never block a save because of the view
+  }
+}
+
+/** Run this once from the editor (select it, press Run) to build the Articles tab straight away. */
+function refreshArticlesSheet() { rebuildView_(rows_(sheet_())); }
+
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.key !== PASSCODE) return out_({ ok: false, error: 'bad_key' });
@@ -98,6 +136,7 @@ function doPost(e) {
         sh.appendRow([d.kind]);
         put_(sh, sh.getLastRow(), d.kind, String(d.id), 1, req.by, JSON.stringify(d.body));
       });
+      rebuildView_(rows_(sh));
       return out_({ ok: true });
     }
     if (KINDS.indexOf(req.kind) < 0 || !req.id) return out_({ ok: false, error: 'bad_request' });
@@ -109,10 +148,12 @@ function doPost(e) {
       let row = cur ? cur.row : 0;
       if (!row) { sh.appendRow([req.kind]); row = sh.getLastRow(); }
       put_(sh, row, req.kind, String(req.id), rev, req.by, JSON.stringify(req.body));
+      if (req.kind !== 'versions') rebuildView_(rows_(sh));
       return out_({ ok: true, rev: rev });
     }
     if (req.action === 'delete') {
       if (cur) sh.deleteRow(cur.row);
+      if (req.kind !== 'versions') rebuildView_(rows_(sh));
       return out_({ ok: true });
     }
     return out_({ ok: false, error: 'bad_request' });
