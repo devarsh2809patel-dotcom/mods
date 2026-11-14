@@ -1,5 +1,14 @@
 # Stock Catalogue & Management System
 
+> **Main tool: Stock Catalogue Studio**, a Claude artifact at https://claude.ai/artifact/Ac837AkyZGBdqMahKbqBGb
+> It works in any browser, including iPad, with no install.
+> * Edit articles, fields, categories, company details and colours.
+> * Export PDF saves a numbered version (the PDF plus a data snapshot) that you can download or restore later.
+> * Source: `artifact/stock-studio.html`. Seed data: `artifact/seed/`.
+>
+> The brochure PDFs in `deliverables/` come from the Studio and follow the new brand palettes. They show no availability.
+> The Python/Flask tool below is the earlier version. It still shows availability and the old colours, so keep it only as an offline backup.
+
 For **C.D. Patel & Sons** and **Daksh Enterprise**.
 
 * A local web app to maintain both firms' stock.

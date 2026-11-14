@@ -1,0 +1,918 @@
+<title>Stock Catalogue Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky toolbar (firm + tabs + export) over a two-pane workspace: category rail | editable stock sheet. */
+:root{
+  --bg:#F6F5F0; --panel:#FFFFFF; --line:#E2DED2; --fg:#0F2E26; --muted:#4E6A61;
+  --brand:#165B4A; --brand-fg:#F8F6F0; --hi:#C99A2E; --tint:#E8DEC8; --danger:#A3361F; --ok:#1F7A4D;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif; --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --shadow:0 1px 3px rgba(22,91,74,.12);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1916; --panel:#14231F; --line:#253A34; --fg:#E7EFEB; --muted:#9DB5AC; --tint:#1E322C; --danger:#F08A70; --ok:#6FD3A0; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1916; --panel:#14231F; --line:#253A34; --fg:#E7EFEB; --muted:#9DB5AC; --tint:#1E322C; --danger:#F08A70; --ok:#6FD3A0; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--brand)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--brand);color:var(--brand-fg);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px}
+.bar-in{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;max-width:1280px;margin:0 auto}
+.brandmark{font:800 15px/1 var(--display);letter-spacing:.02em;margin-right:4px}
+.brandmark small{display:block;font:500 10px/1.4 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--hi)}
+.seg{display:inline-flex;border:1.5px solid color-mix(in srgb,var(--brand-fg) 45%,transparent);border-radius:9px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;padding:6px 12px;font:600 13px var(--body);color:var(--brand-fg)}
+.seg button[aria-pressed="true"]{background:var(--brand-fg);color:var(--brand)}
+.tabs{display:flex;gap:2px}
+.tabs button{all:unset;cursor:pointer;padding:6px 10px;border-radius:7px;font:600 13px var(--body);color:var(--brand-fg);opacity:.8}
+.tabs button[aria-current="page"]{opacity:1;box-shadow:inset 0 -2px 0 var(--hi)}
+.spacer{flex:1}
+.status{font-size:12px;opacity:.85;min-width:70px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.seg button:focus-visible,.tabs button:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.btn{font:600 13px var(--body);border-radius:8px;padding:7px 13px;border:1.5px solid var(--brand);background:var(--panel);color:var(--brand);cursor:pointer;white-space:nowrap}
+.btn.solid{background:var(--brand);color:var(--brand-fg)}
+.bar .btn.solid{background:var(--hi);border-color:var(--hi);color:#0F2E26}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:default}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn:not(.solid){color:var(--fg);border-color:var(--line)}}
+:root[data-theme="dark"] .btn:not(.solid){color:var(--fg);border-color:var(--line)}
+main{max-width:1280px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 60px}
+.work{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.work{grid-template-columns:minmax(0,1fr)}}
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;position:sticky;top:76px;box-shadow:var(--shadow)}
+@media (max-width:820px){.rail{position:static;display:flex;gap:6px;overflow-x:auto;padding:6px}}
+.rail button.cat{all:unset;display:flex;justify-content:space-between;gap:8px;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;cursor:pointer;font-weight:500}
+@media (max-width:820px){.rail button.cat{width:auto;white-space:nowrap}}
+.rail button.cat:hover{background:var(--tint)}
+.rail button.cat[aria-current="true"]{background:var(--brand);color:var(--brand-fg)}
+.rail .n{font:500 12px var(--mono);opacity:.75}
+.rail .add{margin-top:6px;width:100%}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.panel + .panel{margin-top:14px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:22px} h2{font-size:17px} h3{font-size:14px}
+.sub{color:var(--muted);font-size:13px}
+.eyebrow{font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1.5px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
+textarea{width:100%;resize:vertical}
+label.f{display:grid;gap:3px;font:600 12px var(--body);color:var(--muted)}
+label.f input,label.f textarea,label.f select{font-weight:400;font-size:14px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px 14px}
+.sheet{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--brand);color:var(--brand-fg);font:600 12px var(--body);text-align:left;padding:8px 6px;white-space:nowrap}
+td{padding:2px 4px;border-top:1px solid var(--line)}
+td input{width:100%;border-color:transparent;background:transparent;padding:5px 6px}
+td input:hover{border-color:var(--line)}
+td input:focus{background:var(--bg);border-color:var(--brand)}
+td.num input{text-align:right}
+td.code input{font:12px var(--mono);color:var(--muted)}
+tr.addrow td{background:var(--tint)}
+tr.addrow input{border-color:var(--line);background:var(--panel)}
+tr.band td{background:color-mix(in srgb,var(--tint) 45%,transparent)}
+.flag{color:var(--danger);font-size:12px}
+.okmsg{color:var(--ok)}
+details.settings summary{cursor:pointer;font:600 13px var(--body);color:var(--brand);padding:4px 0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) details.settings summary{color:var(--hi)}}
+:root[data-theme="dark"] details.settings summary{color:var(--hi)}
+.fields{display:grid;gap:6px;margin-top:8px}
+.field{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+@media (max-width:560px){.field{grid-template-columns:minmax(0,1fr)}}
+.field .key{font:11px var(--mono);color:var(--muted)}
+.chk{display:inline-flex;gap:5px;align-items:center;font-size:12px;color:var(--muted)}
+.vlist{display:grid;gap:8px}
+.ver{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 14px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+@media (max-width:560px){.ver{grid-template-columns:auto minmax(0,1fr)}.ver .row:last-child{grid-column:1/-1}}
+.vnum{font:800 18px var(--display);color:var(--brand);min-width:44px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .vnum{color:var(--hi)}}
+:root[data-theme="dark"] .vnum{color:var(--hi)}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+.notice{border-radius:10px;padding:10px 12px;background:var(--tint);font-size:13px}
+.notice.err{background:color-mix(in srgb,var(--danger) 14%,var(--panel));color:var(--fg)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.sw{display:flex;gap:8px;align-items:center}
+.sw input[type=color]{width:42px;height:32px;padding:2px}
+.contact{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto auto;gap:8px;align-items:center}
+@media (max-width:560px){.contact{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.exportbox{border:1.5px solid var(--hi);background:color-mix(in srgb,var(--hi) 10%,var(--panel))}
+@media (prefers-reduced-motion:no-preference){.btn,.rail button.cat{transition:background .15s,color .15s}}
+</style>
+
+<header class="bar"><div class="bar-in">
+  <div class="brandmark">Stock Catalogue Studio<small>Catalogue editor</small></div>
+  <div class="seg" id="firms" role="group" aria-label="Firm"></div>
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button data-view="articles">Articles</button>
+    <button data-view="company">Company &amp; colours</button>
+    <button data-view="versions">Versions</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="status" id="status" aria-live="polite"></span>
+  <button class="btn solid" id="exportBtn" type="button">Export PDF</button>
+</div></header>
+<main id="main">
+  <div class="panel empty" id="boot">
+    <h2>Loading the stock catalogue…</h2>
+    <p>Articles for C.D. Patel &amp; Sons and Daksh Enterprise appear here. You can edit them, add fields, and export a new PDF version.</p>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+"use strict";
+/* ======================================================================
+   1. LOGO (Daksh "DE" monogram, redrawn as vector from the business card)
+   ====================================================================== */
+const DE_SVG = (fill) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 520" width="940" height="520"><g fill="${fill}" transform="translate(0,0)">
+<rect x="0" y="20" width="105" height="480"/><rect x="0" y="400" width="320" height="100"/>
+<rect x="145" y="20" width="237" height="100"/><rect x="332" y="400" width="50" height="100"/>
+<path d="M380 20 A180 240 0 0 1 380 500 L380 400 A75 140 0 0 0 380 120 Z"/>
+<path d="M710 20 A180 240 0 0 0 710 500 L710 400 A120 140 0 0 1 710 120 Z"/>
+<rect x="708" y="20" width="232" height="100"/><rect x="708" y="400" width="232" height="100"/>
+<rect x="670" y="205" width="270" height="95"/></g></svg>`;
+const LOGO_RATIO = 940 / 520;
+const logoCache = {};
+function logoPng(kind, fill) {
+  const key = kind + fill;
+  if (logoCache[key]) return logoCache[key];
+  logoCache[key] = new Promise((resolve) => {
+    if (kind !== "de") return resolve(null);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas"); c.width = 940; c.height = 520;
+      c.getContext("2d").drawImage(img, 0, 0); resolve(c.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(null);
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(DE_SVG(fill));
+  });
+  return logoCache[key];
+}
+
+/* ======================================================================
+   2. SHARED HELPERS
+   ====================================================================== */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
+const nums = (s) => (String(s || "").match(/\d+(?:\.\d+)?/g) || []).map(Number);
+function waDigits(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (d.length === 10) d = "91" + d;
+  return d.length >= 11 && d.length <= 15 && d[0] !== "0" ? d : "";
+}
+function prettyPhone(phone) {
+  const d = waDigits(phone);
+  return d.length === 12 && d.startsWith("91") ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : phone;
+}
+function sizeOf(sec, r) { return r.cells.nominal_bore || r.cells.size || ""; }
+function sortKey(sec, r) { const n = nums(sizeOf(sec, r)); return [n.length ? n : [9e9], Number(r.cells.thickness_mm) || 0]; }
+function cmpRows(sec) {
+  return (a, b) => {
+    const [na, ta] = sortKey(sec, a), [nb, tb] = sortKey(sec, b);
+    for (let i = 0; i < Math.max(na.length, nb.length); i++) { const d = (na[i] ?? -1) - (nb[i] ?? -1); if (d) return d; }
+    return ta - tb;
+  };
+}
+function groupKey(sec, r) {
+  if (sec.slug === "rhs" || sec.slug === "shs") return r.cells.size;
+  if (r.cells.nominal_bore) return r.cells.nominal_bore;
+  return String(r.cells.size || "").split(" x ")[0];
+}
+function articleName(sec, r) {
+  const c = r.cells, label = sec.itemLabel || sec.title, t = c.thickness_mm;
+  if (c.nominal_bore) {
+    let s = `${label} ${c.nominal_bore}`;
+    if (c.od_mm) s += `, OD ${c.od_mm}`;
+    if (t) s += ` x ${t} mm`;
+    if (c.pipe_class) s += ` (${c.pipe_class})`;
+    return s;
+  }
+  return t ? `${label} ${c.size} x ${t} mm` : `${label} ${c.size || ""} mm`.trim();
+}
+function specText(sec, r) {
+  const c = r.cells, p = [];
+  if (sec.standard) p.push(sec.standard);
+  if (c.pipe_class) p.push(({ L: "Light", M: "Medium", H: "Heavy" }[c.pipe_class] || c.pipe_class) + " class");
+  if (c.od_mm) p.push(`OD ${c.od_mm} mm`);
+  if (c.thickness_mm) p.push(`Thickness ${c.thickness_mm} mm`);
+  if (c.weight_kg_m) p.push(`${c.weight_kg_m} kg/m`);
+  for (const col of sec.columns) {
+    if (!col.hidden && !["size", "nominal_bore", "od_mm", "thickness_mm", "pipe_class", "weight_kg_m", "weight_kg_pc"].includes(col.key) && c[col.key])
+      p.push(`${col.label}: ${c[col.key]}`);
+  }
+  return p.join(", ") || "-";
+}
+function makeCode(sec, cells) {
+  let base = cells.size || "";
+  if (!base && cells.nominal_bore) base = (nums(cells.nominal_bore)[0] ?? "") + "NB";
+  let code = `${sec.prefix || "ART"}-${String(base).toUpperCase().replace(/\s+/g, "")}`;
+  if (cells.thickness_mm) code += "-" + Number(cells.thickness_mm).toFixed(1);
+  return code;
+}
+function enquiry(company, sec, r) {
+  return `Hello ${company.name}, I am interested in the following article from your stock catalogue:\n\n` +
+    `Article: ${articleName(sec, r)}\nArticle code: ${r.code}\nSize: ${sizeOf(sec, r)}\nSpecification: ${specText(sec, r)}\n` +
+    `Quantity required: \n\nPlease share price and availability.`;
+}
+const waLink = (phone, text) => { const d = waDigits(phone); return d ? `https://wa.me/${d}?text=${encodeURIComponent(text)}` : ""; };
+
+/* ======================================================================
+   3. PDF GENERATOR (jsPDF). Real text, clickable contents, WhatsApp links.
+   ====================================================================== */
+const PW = 595.28, PH = 841.89, M = 36, HEAD = 52, FOOT = 72, GUT = 16;
+const rgb = (h) => { h = String(h).replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+
+async function buildPdf(company, sectionsIn, meta) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+  const P = Object.assign({ bg: "#F8F6F0", primary: "#165B4A", accent: "#C99A2E", surface: "#E8DEC8", ink: "#0F2E26", rule: "#C99A2E" }, company.palette || {});
+  const fill = (h) => doc.setFillColor(...rgb(h)), stroke = (h) => doc.setDrawColor(...rgb(h)), color = (h) => doc.setTextColor(...rgb(h));
+  const font = (style, size) => { doc.setFont("helvetica", style); doc.setFontSize(size); };
+  const contacts = (company.contacts || []).filter((c) => waDigits(c.phone) && c.name);
+  if (!contacts.length) throw new Error("Add at least one contact with a valid WhatsApp number on the Company tab.");
+  const main = contacts.find((c) => c.main) || contacts[0];
+  const sections = sectionsIn
+    .map((s) => ({ ...s, cols: s.columns.filter((c) => !c.hidden), rows: [...s.rows].sort(cmpRows(s)) }))
+    .filter((s) => s.rows.length)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const total = sections.reduce((n, s) => n + s.rows.length, 0);
+  const painted = new Set();
+  const paintBg = () => { const p = doc.getCurrentPageInfo().pageNumber; if (painted.has(p)) return; painted.add(p); fill(P.bg); doc.rect(0, 0, PW, PH, "F"); };
+  const pageSection = {};
+  const logoOnDark = company.logo ? await logoPng(company.logo, P.accent) : null;
+  const logoOnLight = company.logo ? await logoPng(company.logo, P.primary) : null;
+  const generalMsg = `Hello ${company.name}, I saw your stock catalogue and would like to enquire about price and availability.\n\nArticle: \nSize: \nQuantity required: `;
+
+  function chat(cx, cy, r, bgc, fgc) {
+    fill(bgc); doc.circle(cx, cy, r, "F");
+    fill(fgc); doc.roundedRect(cx - r * .55, cy - r * .46, r * 1.1, r * .78, r * .25, r * .25, "F");
+    doc.triangle(cx - r * .38, cy + r * .28, cx - r * .5, cy + r * .62, cx - r * .08, cy + r * .28, "F");
+    fill(bgc); [-.27, 0, .27].forEach((d) => doc.circle(cx + d * r, cy - r * .07, r * .08, "F"));
+  }
+  function centred(text, x, y, w, h, size) { doc.text(text, x + w / 2, y + h / 2 + size * .35, { align: "center" }); }
+  function para(text, x, y, w, size, lead) { const lines = doc.splitTextToSize(text, w); doc.text(lines, x, y, { lineHeightFactor: lead / size }); return lines.length * lead; }
+
+  function footer(p, n) {
+    const y0 = PH - FOOT;
+    fill(P.primary); doc.rect(0, y0, PW, FOOT, "F");
+    fill(P.accent); doc.rect(0, y0, PW, 2.5, "F");
+    chat(M + 8, y0 + 20, 8, P.bg, P.primary);
+    color(P.bg); font("bold", 10.2); doc.text(company.footerCta || "WhatsApp us for pricing.", M + 22, y0 + 23.5);
+    color(P.accent); font("normal", 8.5); doc.text(`Page ${p} of ${n}`, PW - M, y0 + 23.5, { align: "right" });
+    let x = M; const by = y0 + 36, bh = 22;
+    font("bold", 8.6);
+    for (const c of contacts) {
+      const label = `${c.name}  ${prettyPhone(c.phone)}`;
+      const w = doc.getTextWidth(label) + bh + 12;
+      if (x + w > PW - M) break;
+      fill(P.bg); doc.roundedRect(x, by, w, bh, bh / 2, bh / 2, "F");
+      chat(x + bh / 2 + 1, by + bh / 2, bh * .36, P.primary, P.bg);
+      color(P.primary); doc.text(label, x + bh + 2, by + bh / 2 + 3);
+      doc.link(x, by, w, bh, { url: waLink(c.phone, generalMsg) });
+      x += w + 8;
+    }
+    if (company.email) {
+      font("normal", 8.5);
+      const w = doc.getTextWidth(company.email);
+      if (x + w + 6 < PW - M) { color(P.bg); doc.text(company.email, PW - M, by + 14.5, { align: "right" }); }
+    }
+  }
+  function header(p) {
+    fill(P.primary); doc.rect(0, 0, PW, 5, "F");
+    let x = M; const y = 31;
+    if (logoOnLight) { doc.addImage(logoOnLight, "PNG", x, y - 14, 17 * LOGO_RATIO, 17); x += 17 * LOGO_RATIO + 9; }
+    color(P.primary); font("bold", 12); doc.text(company.name, x, y);
+    const tw = doc.getTextWidth(company.name);
+    font("normal", 9); doc.text(company.tagline || "", x + tw + 8, y);
+    const bw = 66, bh = 17, bx = PW - M - bw, by = y - 12;
+    stroke(P.primary); doc.setLineWidth(.8); fill(P.bg); doc.roundedRect(bx, by, bw, bh, bh / 2, bh / 2, "FD");
+    color(P.primary); font("bold", 8.2); centred("Contents", bx, by, bw, bh, 8.2);
+    doc.link(bx, by, bw, bh, { pageNumber: 2 });
+    if (pageSection[p]) { color(P.ink); font("bold", 9); doc.text(pageSection[p], bx - 12, y, { align: "right" }); }
+    stroke(P.surface); doc.setLineWidth(.8); doc.line(M, HEAD - 6, PW - M, HEAD - 6);
+  }
+
+  /* ---------- page 1: cover ---------- */
+  paintBg();
+  const block = 392;
+  fill(P.primary); doc.rect(0, 0, PW, block, "F");
+  doc.setGState(new doc.GState({ opacity: .22 })); stroke(P.accent); doc.setLineWidth(1.2);
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) {
+    const x = PW - 214 + k * 46, y = 74 + r * 64, t = (r + k) % 3;
+    if (t === 0) { doc.circle(x + 18, y + 18, 18, "S"); doc.circle(x + 18, y + 18, 13, "S"); }
+    else if (t === 1) { doc.rect(x, y, 36, 36, "S"); doc.rect(x + 5, y + 5, 26, 26, "S"); }
+    else { doc.rect(x, y + 8, 36, 20, "S"); doc.rect(x + 4, y + 12, 28, 12, "S"); }
+  }
+  doc.setGState(new doc.GState({ opacity: 1 }));
+  fill(P.accent); doc.rect(0, block - 5, PW, 5, "F");
+  let cy = 64;
+  if (logoOnDark) { doc.addImage(logoOnDark, "PNG", M + 2, 40, 44 * LOGO_RATIO, 44); cy = 112; }
+  color(P.accent); font("bold", 9.5); doc.text("STOCK CATALOGUE", M + 3, cy, { charSpace: 2.2 });
+  let ns = 40; font("bold", ns); while (doc.getTextWidth(company.name) > 330 && ns > 24) { ns -= 2; font("bold", ns); }
+  color(P.bg); doc.text(company.name, M + 1, cy + 44);
+  color(P.accent); font("bold", 15.5); doc.text(company.tagline || "", M + 2, cy + 68);
+  color(P.bg); font("normal", 10.5); doc.text(`Edition ${meta.version ? "v" + meta.version + " · " : ""}${meta.dateLabel}`, M + 2, cy + 90);
+  color(P.accent); font("bold", 8); doc.text("PRODUCT RANGE", M + 3, cy + 124, { charSpace: 1 });
+  let x = M + 2, y = cy + 134;
+  font("bold", 9);
+  const chipPos = [];
+  for (const s of sections) {
+    const w = doc.getTextWidth(s.short || s.title) + 18;
+    if (x + w > PW - 236) { x = M + 2; y += 24; }
+    stroke(P.bg); doc.setLineWidth(.8); doc.roundedRect(x, y, w, 17, 8.5, 8.5, "S");
+    color(P.bg); centred(s.short || s.title, x, y, w, 17, 9);
+    chipPos.push([s, x, y, w]);
+    x += w + 7;
+  }
+  color(P.bg); font("bold", 22); doc.text(String(total), M + 2, block - 30);
+  const tw = doc.getTextWidth(String(total));
+  font("normal", 10.5); color(P.accent); doc.text(`articles in ${sections.length} categories`, M + 8 + tw, block - 31);
+
+  let yy = block + 38;
+  color(P.primary); font("bold", 14); doc.text("How to use this catalogue", M, yy);
+  const steps = [
+    ["Find", "Press Ctrl+F (Cmd+F on Mac) or tap the search icon in your PDF app. Type a size such as 50x50 or 25 NB."],
+    ["Enquire on WhatsApp", "Tap Enquire next to any article. WhatsApp opens with the details filled in. Add the quantity and send."],
+    ["Need something else?", "Not every size we supply is listed. Ask us and we will source it for you at short notice."],
+  ];
+  const sw3 = (PW - 2 * M - 24) / 3;
+  steps.forEach(([t, d], i) => {
+    const sx = M + i * (sw3 + 12);
+    fill(P.primary); doc.circle(sx + 11, yy + 26, 11, "F");
+    stroke(P.rule); doc.setLineWidth(1.4); doc.circle(sx + 11, yy + 26, 13.5, "S");
+    color(P.bg); font("bold", 11); doc.text(String(i + 1), sx + 11, yy + 30, { align: "center" });
+    color(P.ink); font("bold", 11); doc.text(t, sx + 30, yy + 30);
+    color(P.ink); font("normal", 9); para(d, sx + 30, yy + 45, sw3 - 30, 9, 11.8);
+  });
+  yy += 112;
+  color(P.primary); font("bold", 14); doc.text("Talk to us", M, yy);
+  const n = contacts.length, cw = (PW - 2 * M - (n - 1) * 12) / n;
+  contacts.forEach((c, i) => {
+    const cx = M + i * (cw + 12), top = yy + 12;
+    fill(P.surface); doc.roundedRect(cx, top, cw, 80, 8, 8, "F");
+    color(P.ink); font("bold", 13); doc.text(c.name, cx + 14, top + 24);
+    font("normal", 11); doc.text(prettyPhone(c.phone), cx + 14, top + 41);
+    const bw = 92;
+    fill(P.primary); doc.roundedRect(cx + 14, top + 50, bw, 21, 10.5, 10.5, "F");
+    chat(cx + 25, top + 60.5, 7.4, P.bg, P.primary);
+    color(P.bg); font("bold", 9); doc.text("WhatsApp", cx + 38, top + 64);
+    doc.link(cx + 14, top + 50, bw, 21, { url: waLink(c.phone, generalMsg) });
+    stroke(P.primary); doc.setLineWidth(.9); doc.roundedRect(cx + 22 + bw, top + 50, 52, 21, 10.5, 10.5, "S");
+    color(P.primary); centred("Call", cx + 22 + bw, top + 50, 52, 21, 9);
+    doc.link(cx + 22 + bw, top + 50, 52, 21, { url: "tel:+" + waDigits(c.phone) });
+  });
+  yy += 124;
+  const cols = [...(company.addresses || []).filter((a) => a.text)];
+  if (company.email) cols.push({ label: "Email", text: company.email });
+  if (company.website) cols.push({ label: "Website", text: company.website });
+  if (cols.length) {
+    const aw = (PW - 2 * M - (cols.length - 1) * 16) / cols.length;
+    cols.forEach((a, i) => {
+      const ax = M + i * (aw + 16);
+      fill(P.rule); doc.rect(ax, yy - 10, 3, 13, "F");
+      color(P.primary); font("bold", 10.5); doc.text(a.label, ax + 9, yy);
+      color(P.ink); font("normal", 9); para(a.text, ax + 9, yy + 15, aw - 9, 9, 11.5);
+    });
+  }
+
+  /* ---------- page 2: contents (filled in at the end) ---------- */
+  doc.addPage(); paintBg();
+  doc.outline.add(null, "Cover & contacts", { pageNumber: 1 });
+  doc.outline.add(null, "Contents", { pageNumber: 2 });
+
+  /* ---------- sections ---------- */
+  const startPage = {};
+  sections.forEach((s, idx) => {
+    doc.addPage(); paintBg();
+    const p0 = doc.getNumberOfPages(); startPage[s.slug + s.title] = p0;
+    doc.outline.add(null, `${String(idx + 1).padStart(2, "0")}  ${s.title}`, { pageNumber: p0 });
+    // section header
+    let top = HEAD + 10;
+    fill(P.rule); doc.rect(M, top, 4, 58, "F");
+    color(P.primary); font("bold", 8); doc.text(`SECTION ${String(idx + 1).padStart(2, "0")}`, M + 14, top + 9, { charSpace: 1.2 });
+    font("bold", 21); doc.text(s.title, M + 14, top + 31);
+    font("normal", 8.8); doc.text([s.standard, `${s.rows.length} articles`].filter(Boolean).join("  ·  "), M + 14, top + 45);
+    if (s.description) { color(P.ink); font("normal", 8.8); doc.text(doc.splitTextToSize(s.description, PW - 2 * M - 20)[0], M + 14, top + 57); }
+    top += 74;
+
+    const compact = s.cols.length <= 2;
+    const width = compact ? (PW - 2 * M - GUT) / 2 : PW - 2 * M;
+    const codeW = compact ? 74 : s.cols.length > 4 ? 92 : 104, enqW = compact ? 44 : 58;
+    const rest = width - codeW - enqW;
+    const wts = s.cols.map((c) => (c.key === "size" || c.key === "nominal_bore" ? 1.6 : 1));
+    const colStyles = { 0: { cellWidth: codeW, textColor: rgb(P.primary), fontSize: compact ? 7 : 7.8 } };
+    s.cols.forEach((c, i) => { colStyles[i + 1] = { cellWidth: (rest * wts[i]) / wts.reduce((a, b) => a + b, 0), halign: c.num ? "right" : c.key === "pipe_class" ? "center" : "left" }; });
+    colStyles[s.cols.length + 1] = { cellWidth: enqW };
+    const head = [["Article code", ...s.cols.map((c) => c.label), ""]];
+    let band = 1, prev = null;
+    const meta2 = s.rows.map((r) => { const g = groupKey(s, r); const first = g !== prev; if (first) band = 1 - band; prev = g; return { r, first, band }; });
+    const fs = compact ? 7.8 : 8.6, pad = compact ? 3 : 3.6, rowH = compact ? 15 : 17.5;
+    const opts = (body, rowsMeta, startY, left) => ({
+      head, body, startY, margin: { left, right: PW - left - width, top: HEAD + 8, bottom: FOOT + 12 }, tableWidth: width,
+      theme: "plain", columnStyles: colStyles, rowPageBreak: "avoid",
+      styles: { font: "helvetica", fontSize: fs, textColor: rgb(P.ink), cellPadding: { top: pad, bottom: pad, left: 4, right: 4 }, minCellHeight: rowH, valign: "middle", overflow: "ellipsize" },
+      headStyles: { fillColor: rgb(P.primary), textColor: rgb(P.bg), fontStyle: "bold", fontSize: fs - .3, minCellHeight: rowH },
+      willDrawPage: () => paintBg(),
+      didParseCell: (d) => {
+        if (d.section !== "body") return;
+        const m = rowsMeta[d.row.index];
+        if (m.band) d.cell.styles.fillColor = rgb(P.surface);
+        if (d.column.index === 1) d.cell.styles.fontStyle = m.first ? "bold" : "normal";
+      },
+      didDrawCell: (d) => {
+        if (d.section !== "body" || d.column.index !== s.cols.length + 1) return;
+        const m = rowsMeta[d.row.index], bh = compact ? 10.5 : 12, bw = d.cell.width - 8;
+        const bx = d.cell.x + 4, by = d.cell.y + (d.cell.height - bh) / 2;
+        fill(P.primary); doc.roundedRect(bx, by, bw, bh, bh / 2, bh / 2, "F");
+        color(P.bg); font("bold", compact ? 6.6 : 7); centred("Enquire", bx, by, bw, bh, compact ? 6.6 : 7);
+        doc.link(bx, by, bw, bh, { url: waLink(main.phone, enquiry(company, s, m.r)) });
+      },
+    });
+    const bodyOf = (list) => list.map(({ r }) => [r.code, ...s.cols.map((c) => r.cells[c.key] ?? ""), ""]);
+    if (!compact) {
+      doc.autoTable(opts(bodyOf(meta2), meta2, top, M));
+    } else {
+      let i = 0, first = true;
+      while (i < meta2.length) {
+        if (!first) { doc.addPage(); paintBg(); }
+        const y0 = first ? top : HEAD + 10;
+        const cap = Math.max(1, Math.floor((PH - FOOT - 14 - y0 - rowH) / rowH));
+        const L = meta2.slice(i, i + cap), R = meta2.slice(i + cap, i + 2 * cap);
+        const before = doc.getNumberOfPages();
+        doc.autoTable(opts(bodyOf(L), L, y0, M));
+        if (doc.getNumberOfPages() !== before) throw new Error("Layout overflow in " + s.title);
+        doc.setPage(before);
+        if (R.length) { doc.autoTable(opts(bodyOf(R), R, y0, M + width + GUT)); doc.setPage(before); }
+        i += L.length + R.length; first = false;
+      }
+    }
+    for (let p = p0; p <= doc.getNumberOfPages(); p++) pageSection[p] = s.title;
+  });
+
+  /* ---------- contents page ---------- */
+  doc.setPage(2);
+  let ty = HEAD + 34;
+  color(P.primary); font("bold", 26); doc.text("Contents", M, ty);
+  font("normal", 10); doc.text("Tap a section to jump to it. The Contents button at the top of every page brings you back here.", M, ty + 18);
+  ty += 38;
+  sections.forEach((s, i) => {
+    const pg = startPage[s.slug + s.title], h = 34;
+    stroke(P.surface); doc.setLineWidth(.8); doc.line(M, ty + h, PW - M, ty + h);
+    fill(P.primary); doc.roundedRect(M, ty + 7, 22, 20, 4, 4, "F");
+    color(P.bg); font("bold", 10); doc.text(String(i + 1).padStart(2, "0"), M + 11, ty + 21, { align: "center" });
+    color(P.ink); font("bold", 12.5); doc.text(s.title, M + 32, ty + 16);
+    color(P.primary); font("normal", 8.5); doc.text([s.standard, `${s.rows.length} articles`].filter(Boolean).join("  ·  "), M + 32, ty + 28);
+    font("bold", 12.5); doc.text(String(pg), PW - M - 4, ty + 21, { align: "right" });
+    font("normal", 8); doc.text("page", PW - M - 26, ty + 21, { align: "right" });
+    doc.link(M, ty, PW - 2 * M, h, { pageNumber: pg });
+    ty += h;
+  });
+  ty += 24;
+  const boxes = [
+    ["Search", "Press Ctrl+F (Windows), Cmd+F (Mac) or tap the search icon. Type a size such as 50x50, 40 x 20, 25 NB or a code such as SHS-50X50-2.0."],
+    ["Enquire on WhatsApp", "Tap Enquire next to any article. WhatsApp opens with the article details filled in. Add the quantity you need and send."],
+    ["Sourcing on request", "This catalogue lists our regular range. If you need a size, grade or section that is not listed, ask us and we will source it."],
+  ];
+  const bw3 = (PW - 2 * M - 24) / 3;
+  boxes.forEach(([t, d], i) => {
+    const bx = M + i * (bw3 + 12);
+    fill(P.surface); doc.roundedRect(bx, ty, bw3, 128, 8, 8, "F");
+    fill(P.rule); doc.rect(bx + 13, ty + 14, 22, 3, "F");
+    color(P.primary); font("bold", 11); doc.text(t, bx + 13, ty + 34);
+    color(P.ink); font("normal", 8.8); para(d, bx + 13, ty + 52, bw3 - 26, 8.8, 11.6);
+  });
+  ty += 150;
+  color(P.ink); font("italic", 8.4);
+  para("Notes: weights are as per standard section tables and are indicative; actual weights vary within mill tolerance. Kg/pc is for a 6 m length. Pipes: tolerance in thickness and weight ±10%. Prices are confirmed on enquiry.", M, ty, PW - 2 * M, 8.4, 11);
+  // chips on the cover link to sections
+  doc.setPage(1);
+  chipPos.forEach(([s, cx2, cy2, w]) => doc.link(cx2, cy2, w, 17, { pageNumber: startPage[s.slug + s.title] }));
+
+  /* ---------- chrome on every page ---------- */
+  const N = doc.getNumberOfPages();
+  for (let p = 1; p <= N; p++) { doc.setPage(p); if (p > 1) header(p); footer(p, N); }
+  doc.setProperties({
+    title: `${company.name} - Stock Catalogue${meta.version ? " v" + meta.version : ""}`, author: company.name,
+    subject: `Stock catalogue, ${meta.dateLabel}`, keywords: sections.map((s) => s.title).join(", "), creator: "Stock Catalogue Studio",
+  });
+  return { doc, pages: N, articles: total };
+}
+const dateLabel = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const fileName = (company, v) => `${company.name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "")}_Stock_Catalogue${v ? "_v" + v : "_draft"}.pdf`;
+
+/* ======================================================================
+   4. APP STATE + STORE
+   ====================================================================== */
+const S = { db: null, dl: null, assets: null, test: false, companies: {}, sections: {}, versions: {}, firm: "cd-patel",
+  view: "articles", sel: null, q: "", confirm: null, exportOpen: false, busy: "", note: "", loaded: { c: false, s: false, v: false } };
+const lastWritten = {};
+const saving = {};
+const timers = {};
+const $ = (s, r = document) => r.querySelector(s);
+const status = (t, err) => { const e = $("#status"); e.textContent = t; e.style.color = err ? "var(--hi)" : ""; };
+
+function firmSections(firm = S.firm) {
+  return Object.entries(S.sections).filter(([, s]) => s.company === firm).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+}
+function schedule(kind, id) {
+  clearTimeout(timers[kind + id]);
+  status("Unsaved…");
+  timers[kind + id] = setTimeout(() => write(kind, id), 700);
+}
+async function write(kind, id) {
+  const key = kind + id;
+  if (saving[key]) { saving[key] = "again"; return; }
+  const body = kind === "sections" ? S.sections[id] : S.companies[id];
+  if (!body) return;
+  saving[key] = true; status("Saving…");
+  const json = JSON.stringify(body);
+  lastWritten[key] = json;
+  try {
+    if (!S.test) await S.db.collection(kind).doc(id).set(JSON.parse(json));
+    status("Saved");
+  } catch (e) {
+    status("Not saved", true);
+    notice(`Could not save: ${e.message || e.code}. Your change is still on screen; edit again to retry.`, true);
+  }
+  const again = saving[key] === "again"; saving[key] = false;
+  if (again) write(kind, id);
+}
+async function removeDoc(kind, id) {
+  if (kind === "sections") delete S.sections[id]; else if (kind === "versions") delete S.versions[id];
+  try { if (!S.test) await S.db.collection(kind).doc(id).delete(); status("Saved"); }
+  catch (e) { notice(`Could not delete: ${e.message || e.code}`, true); }
+}
+let noticeMsg = null;
+function notice(msg, err) { noticeMsg = { msg, err }; render(); }
+
+function subscribe() {
+  const timer = setTimeout(() => { if (!(S.loaded.c && S.loaded.s)) notice("The stock data can't be reached yet. Check your connection; this page keeps trying.", true); }, 10000);
+  const sub = (kind, target, flag) => S.db.collection(kind).onSnapshot((snap) => {
+    let changed = false;
+    for (const ch of snap.docChanges()) {
+      const id = ch.doc.id;
+      if (ch.type === "removed") { delete target[id]; changed = true; continue; }
+      const data = ch.doc.data();
+      if (lastWritten[kind + id] && JSON.stringify(data) === lastWritten[kind + id]) continue;
+      if (timers[kind + id] && saving[kind + id] !== false && kind !== "versions") continue;
+      target[id] = structuredClone(data); changed = true;
+    }
+    if (!snap.metadata.fromCache) { S.loaded[flag] = true; if (S.loaded.c && S.loaded.s) clearTimeout(timer); }
+    if (changed || !S.ready) { S.ready = true; renderSafe(); }
+  }, (e) => notice(`Live updates stopped (${e.code}). Reload the page to reconnect.`, true));
+  sub("companies", S.companies, "c"); sub("sections", S.sections, "s"); sub("versions", S.versions, "v");
+}
+function renderSafe() {
+  const a = document.activeElement;
+  if (a && a.closest && a.closest("#main") && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) { S.pendingRender = true; return; }
+  render();
+}
+document.addEventListener("focusout", () => setTimeout(() => { if (S.pendingRender) { S.pendingRender = false; renderSafe(); } }, 0));
+
+/* ======================================================================
+   5. RENDER
+   ====================================================================== */
+function applyBrand() {
+  const c = S.companies[S.firm]; if (!c) return;
+  const p = c.palette || {}, r = document.documentElement.style;
+  r.setProperty("--brand", p.primary || "#165B4A"); r.setProperty("--brand-fg", p.bg || "#F8F6F0");
+  r.setProperty("--hi", p.accent || "#C99A2E");
+}
+function render() {
+  const firms = Object.entries(S.companies).sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+  $("#firms").innerHTML = firms.map(([id, c]) => `<button type="button" data-firm="${esc(id)}" aria-pressed="${id === S.firm}">${esc(c.name)}</button>`).join("");
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false"));
+  applyBrand();
+  const main = $("#main");
+  if (!S.ready) return;
+  if (!firms.length) { main.innerHTML = `<div class="panel empty"><h2>No catalogue data yet</h2><p>Ask Claude to load the starting inventory into this page.</p></div>`; return; }
+  if (!S.companies[S.firm]) S.firm = firms[0][0];
+  let html = "";
+  if (noticeMsg) html += `<div class="notice ${noticeMsg.err ? "err" : ""} row between" style="margin-bottom:12px"><span>${esc(noticeMsg.msg)}</span><button class="btn sm ghost" data-act="dismiss">Dismiss</button></div>`;
+  if (S.exportOpen) html += exportPanel();
+  if (S.view === "articles") html += articlesView();
+  else if (S.view === "company") html += companyView();
+  else html += versionsView();
+  main.innerHTML = html;
+}
+
+function exportPanel() {
+  const c = S.companies[S.firm];
+  const count = firmSections().reduce((n, [, s]) => n + s.rows.length, 0);
+  const next = nextVersion();
+  return `<section class="panel exportbox" style="margin-bottom:14px">
+    <div class="row between"><h2>Export ${esc(c.name)} catalogue</h2><button class="btn sm ghost" data-act="closeExport">Close</button></div>
+    <p class="sub">${count} articles. Saving creates <b>version ${next}</b>: the PDF and a snapshot of today's data are kept on the Versions tab.</p>
+    <div class="row" style="align-items:end">
+      <label class="f" style="flex:1 1 260px">What changed? (optional)<input id="vnote" value="${esc(S.note)}" placeholder="e.g. Added 40x40 SHS, new phone number"></label>
+      <button class="btn solid" data-act="exportVersion" ${S.busy ? "disabled" : ""}>Save version ${next} &amp; download PDF</button>
+      <button class="btn" data-act="exportDraft" ${S.busy ? "disabled" : ""}>Download draft only</button>
+    </div>
+    ${S.busy ? `<p class="sub" style="margin-top:8px">${esc(S.busy)}</p>` : ""}
+  </section>`;
+}
+
+function articlesView() {
+  const secs = firmSections();
+  if (!S.sel || !S.sections[S.sel] || S.sections[S.sel].company !== S.firm) S.sel = secs[0]?.[0] || null;
+  const rail = `<nav class="rail" aria-label="Categories">${secs.map(([id, s]) =>
+    `<button class="cat" type="button" data-sec="${esc(id)}" aria-current="${id === S.sel}"><span>${esc(s.title)}</span><span class="n">${s.rows.length}</span></button>`).join("")}
+    <button class="btn sm add" data-act="newCat" type="button">+ New category</button></nav>`;
+  let body = "";
+  const q = S.q.trim().toLowerCase().replace(/\s*x\s*/g, "x");
+  const search = `<div class="row between"><label class="f" style="flex:1 1 280px">Search all categories<input id="q" type="search" value="${esc(S.q)}" placeholder="Size or code, e.g. 50x50 or 25 NB"></label></div>`;
+  if (S.confirm?.type === "newCat") {
+    body = `<section class="panel"><h2>New category</h2><p class="sub">For example Channels, Beams, Plates or MS Sheets. You can add more fields after creating it.</p>
+      <div class="grid2" style="margin-top:10px">
+        <label class="f">Category name<input id="nc_name" placeholder="Channels"></label>
+        <label class="f">Code prefix<input id="nc_prefix" placeholder="CH" maxlength="6"></label>
+        <label class="f">Item label (singular)<input id="nc_label" placeholder="Channel"></label>
+        <label class="f">Standard (optional)<input id="nc_std" placeholder="IS 2062"></label>
+      </div>
+      <p class="sub" style="margin-top:8px">Starts with fields: Size (mm), Kg/m. ${S.confirm.err ? `<span class="flag">${esc(S.confirm.err)}</span>` : ""}</p>
+      <div class="row" style="margin-top:8px"><button class="btn solid" data-act="createCat">Create category</button><button class="btn" data-act="cancel">Cancel</button></div></section>`;
+  } else if (q) {
+    const hits = [];
+    for (const [id, s] of secs) for (const r of s.rows) {
+      const hay = (r.code + " " + Object.values(r.cells).join(" ") + " " + s.title).toLowerCase().replace(/\s*x\s*/g, "x");
+      if (q.split(/\s+/).every((t) => hay.includes(t))) hits.push([id, s, r]);
+    }
+    body = `<section class="panel">${search}<p class="sub" style="margin-top:8px">${hits.length} matches</p>
+      <div class="sheet"><table><thead><tr><th>Category</th><th>Code</th><th>Article</th><th></th></tr></thead><tbody>
+      ${hits.slice(0, 300).map(([id, s, r]) => `<tr><td>${esc(s.title)}</td><td class="code" style="font:12px var(--mono)">${esc(r.code)}</td><td>${esc(articleName(s, r))}</td><td><button class="btn sm" data-sec="${esc(id)}" data-act="openSec">Open</button></td></tr>`).join("") || `<tr><td colspan="4" class="empty">No article matches “${esc(S.q)}”.</td></tr>`}
+      </tbody></table></div></section>`;
+  } else if (S.sel) {
+    body = sectionEditor(S.sel, search);
+  } else {
+    body = `<section class="panel empty"><h2>No categories yet</h2><p>Create the first category to start adding articles.</p></section>`;
+  }
+  return `<div class="work">${rail}<div style="min-width:0">${body}</div></div>`;
+}
+
+function sectionEditor(id, search) {
+  const s = S.sections[id];
+  const cols = s.columns;
+  const confirmDel = S.confirm?.type === "delRow" ? S.confirm.row : null;
+  let band = 1, prev = null;
+  const rowsHtml = s.rows.map((r, i) => {
+    const g = groupKey(s, r); if (g !== prev) band = 1 - band; prev = g;
+    const del = confirmDel === r.id
+      ? `<button class="btn sm danger" data-act="delRowYes" data-row="${esc(r.id)}">Remove</button> <button class="btn sm ghost" data-act="cancel">Keep</button>`
+      : `<button class="btn sm ghost" data-act="delRow" data-row="${esc(r.id)}" aria-label="Remove ${esc(r.code)}">Remove</button>`;
+    return `<tr class="${band ? "band" : ""}"><td class="code"><input data-i="${i}" data-k="__code" value="${esc(r.code)}" aria-label="Article code"></td>${cols.map((c) =>
+      `<td class="${c.num ? "num" : ""}"><input data-i="${i}" data-k="${esc(c.key)}" value="${esc(r.cells[c.key] ?? "")}" aria-label="${esc(c.label)}" ${c.num ? 'inputmode="decimal"' : ""}></td>`).join("")}<td style="white-space:nowrap">${del}</td></tr>`;
+  }).join("");
+  const addRow = `<tr class="addrow"><td class="code"><input id="add___code" placeholder="auto" aria-label="New article code"></td>${cols.map((c) =>
+    `<td class="${c.num ? "num" : ""}"><input id="add_${esc(c.key)}" placeholder="${esc(c.label)}" aria-label="New ${esc(c.label)}" ${c.num ? 'inputmode="decimal"' : ""}></td>`).join("")}<td><button class="btn sm solid" data-act="addRow">Add</button></td></tr>`;
+  const fieldList = cols.map((c, i) => {
+    const conf = S.confirm?.type === "delCol" && S.confirm.key === c.key;
+    return `<div class="field"><label class="f" style="margin:0">Field name <span class="key">${esc(c.key)}</span><input data-col="${i}" data-cp="label" value="${esc(c.label)}"></label>
+      <span class="chk"><input type="checkbox" data-col="${i}" data-cp="num" ${c.num ? "checked" : ""} id="num_${i}"><label for="num_${i}">Number</label></span>
+      <span class="chk"><input type="checkbox" data-col="${i}" data-cp="hidden" ${c.hidden ? "checked" : ""} id="hid_${i}"><label for="hid_${i}">Internal only</label></span>
+      <span class="row">${i > 0 ? `<button class="btn sm ghost" data-act="colUp" data-col="${i}" aria-label="Move ${esc(c.label)} left">↑</button>` : ""}
+      ${conf ? `<button class="btn sm danger" data-act="delColYes" data-col="${i}">Delete field + its values</button><button class="btn sm ghost" data-act="cancel">Keep</button>`
+        : `<button class="btn sm ghost" data-act="delCol" data-col="${i}">Delete</button>`}</span></div>`;
+  }).join("");
+  const delCat = S.confirm?.type === "delCat"
+    ? `<button class="btn sm danger" data-act="delCatYes">Delete “${esc(s.title)}” and its ${s.rows.length} articles</button> <button class="btn sm ghost" data-act="cancel">Keep</button>`
+    : `<button class="btn sm danger" data-act="delCat">Delete category</button>`;
+  const addErr = S.confirm?.type === "addErr" ? `<p class="flag">${esc(S.confirm.msg)}</p>` : "";
+  return `<section class="panel">${search}</section>
+  <section class="panel">
+    <div class="row between"><div><div class="eyebrow">${esc(S.companies[S.firm].name)}</div><h1>${esc(s.title)}</h1>
+      <p class="sub">${esc([s.standard, s.rows.length + " articles"].filter(Boolean).join(" · "))}. Edit any cell; changes save automatically. Rows sort by size when the PDF is made.</p></div></div>
+    <details class="settings"${S.openSettings ? " open" : ""}><summary>Category details &amp; fields</summary>
+      <div class="grid2" style="margin-top:8px">
+        <label class="f">Title<input data-sp="title" value="${esc(s.title)}"></label>
+        <label class="f">Short name (cover chip)<input data-sp="short" value="${esc(s.short || "")}"></label>
+        <label class="f">Item label (singular)<input data-sp="itemLabel" value="${esc(s.itemLabel || "")}"></label>
+        <label class="f">Code prefix<input data-sp="prefix" value="${esc(s.prefix || "")}"></label>
+        <label class="f">Standard<input data-sp="standard" value="${esc(s.standard || "")}"></label>
+        <label class="f">Order in catalogue<input data-sp="order" inputmode="numeric" value="${esc(s.order ?? "")}"></label>
+      </div>
+      <label class="f" style="margin-top:10px">Description (printed under the title)<textarea data-sp="description" rows="2">${esc(s.description || "")}</textarea></label>
+      <h3 style="margin-top:14px">Fields (table columns)</h3>
+      <p class="sub">“Internal only” fields stay in this editor and are not printed. Categories with 2 or fewer printed fields use the compact two-column layout.</p>
+      <div class="fields">${fieldList}</div>
+      <div class="row" style="margin-top:8px"><input id="newField" placeholder="New field name, e.g. Grade or Length (m)" style="flex:1 1 240px"><button class="btn" data-act="addCol">Add field</button></div>
+      <div class="row" style="margin-top:14px">${delCat}</div>
+    </details>
+    ${addErr}
+    <div class="sheet"><table><thead><tr><th>Article code</th>${cols.map((c) => `<th>${esc(c.label)}${c.hidden ? " (internal)" : ""}</th>`).join("")}<th></th></tr></thead>
+      <tbody>${addRow}${rowsHtml || `<tr><td colspan="${cols.length + 2}" class="empty">No articles yet. Fill the highlighted row and press Add.</td></tr>`}</tbody></table></div>
+  </section>`;
+}
+
+function companyView() {
+  const c = S.companies[S.firm], p = c.palette || {};
+  const sw = (k, label, hint) => `<div class="sw"><input type="color" data-pal="${k}" value="${esc(p[k] || "#000000")}" aria-label="${label}"><div><b>${label}</b><div class="sub">${hint}</div></div></div>`;
+  const contacts = (c.contacts || []).map((ct, i) => `<div class="contact">
+    <input data-ct="${i}" data-cf="name" value="${esc(ct.name)}" aria-label="Contact name">
+    <input data-ct="${i}" data-cf="phone" value="${esc(ct.phone)}" aria-label="Phone" placeholder="+91 …">
+    <span class="chk"><input type="radio" name="mainct" data-ct="${i}" data-cf="main" ${ct.main ? "checked" : ""} id="m_${i}"><label for="m_${i}">Gets Enquire messages</label></span>
+    <button class="btn sm ghost" data-act="delContact" data-i="${i}">Remove</button>
+    ${ct.phone && !waDigits(ct.phone) ? `<span class="flag" style="grid-column:1/-1">This number is not valid for WhatsApp; include the country code.</span>` : ""}</div>`).join("");
+  const addrs = (c.addresses || []).map((a, i) => `<div class="contact" style="grid-template-columns:minmax(0,160px) minmax(0,1fr) auto">
+    <input data-ad="${i}" data-af="label" value="${esc(a.label)}" aria-label="Address label"><input data-ad="${i}" data-af="text" value="${esc(a.text)}" aria-label="Address">
+    <button class="btn sm ghost" data-act="delAddr" data-i="${i}">Remove</button></div>`).join("");
+  return `<section class="panel"><div class="eyebrow">Printed on this firm's catalogue only</div><h1>${esc(c.name)}</h1>
+    <div class="grid2" style="margin-top:12px">
+      <label class="f">Company name<input data-co="name" value="${esc(c.name)}"></label>
+      <label class="f">Tagline<input data-co="tagline" value="${esc(c.tagline || "")}"></label>
+      <label class="f">Email<input data-co="email" value="${esc(c.email || "")}"></label>
+      <label class="f">Website<input data-co="website" value="${esc(c.website || "")}"></label>
+    </div>
+    <label class="f" style="margin-top:10px">Footer message on every page<input data-co="footerCta" value="${esc(c.footerCta || "")}"></label></section>
+  <section class="panel"><h2>Contacts &amp; WhatsApp</h2><p class="sub">Every contact appears in the footer of every page. The one marked “Gets Enquire messages” receives the per-article Enquire taps.</p>
+    <div class="fields">${contacts}</div><button class="btn sm" style="margin-top:8px" data-act="addContact">+ Add contact</button></section>
+  <section class="panel"><h2>Addresses</h2><div class="fields">${addrs}</div><button class="btn sm" style="margin-top:8px" data-act="addAddr">+ Add address</button></section>
+  <section class="panel"><h2>Catalogue colours</h2><p class="sub">Used in the exported PDF. Keep text colours dark enough to read on the page background.</p>
+    <div class="swatches" style="margin-top:10px">
+      ${sw("bg", "Page background", "about 60% of the page")}${sw("primary", "Brand colour", "cover, headers, buttons")}${sw("accent", "Highlight on brand", "text and rules on the brand colour")}
+      ${sw("rule", "Accent on page", "thin rules and markers")}${sw("surface", "Tint", "boxes and alternate rows")}${sw("ink", "Text", "all body text")}
+    </div></section>`;
+}
+
+function nextVersion() { return Object.values(S.versions).filter((v) => v.company === S.firm).reduce((m, v) => Math.max(m, v.number || 0), 0) + 1; }
+function versionsView() {
+  const vs = Object.entries(S.versions).filter(([, v]) => v.company === S.firm).sort((a, b) => b[1].number - a[1].number);
+  const c = S.companies[S.firm];
+  const list = vs.map(([id, v]) => {
+    const conf = S.confirm?.type === "restore" && S.confirm.id === id;
+    return `<div class="ver"><div class="vnum">v${v.number}</div>
+      <div style="min-width:0"><b>${esc(dateLabel(new Date(v.createdAt)))}</b> <span class="sub">· ${v.articleCount} articles · ${v.pages} pages</span>
+      <div class="sub">${esc(v.note || "No note")}</div></div>
+      <div class="row">${conf
+        ? `<button class="btn sm danger" data-act="restoreYes" data-id="${esc(id)}">Replace current data with v${v.number}</button><button class="btn sm ghost" data-act="cancel">Cancel</button>`
+        : `<button class="btn sm solid" data-act="dlVer" data-id="${esc(id)}">Download PDF</button><button class="btn sm" data-act="restore" data-id="${esc(id)}">Restore data</button>`}</div></div>`;
+  }).join("");
+  return `<section class="panel"><div class="row between"><div><h1>Versions · ${esc(c.name)}</h1>
+    <p class="sub">Each export is kept with the exact PDF and a copy of the data at that moment. Restoring replaces the current articles and company details with that copy.</p></div>
+    <button class="btn solid" data-act="openExport">Export new version</button></div>
+    <div class="vlist" style="margin-top:12px">${list || `<div class="empty">No versions yet. Press <b>Export PDF</b> to create version 1.</div>`}</div></section>`;
+}
+
+/* ======================================================================
+   6. EVENTS
+   ====================================================================== */
+document.addEventListener("click", async (e) => {
+  const fb = e.target.closest("[data-firm]"); if (fb) { S.firm = fb.dataset.firm; S.sel = null; S.confirm = null; render(); return; }
+  const tb = e.target.closest("#tabs button"); if (tb) { S.view = tb.dataset.view; S.confirm = null; render(); return; }
+  if (e.target.closest("#exportBtn")) { S.exportOpen = true; render(); return; }
+  const cat = e.target.closest("button.cat"); if (cat) { S.sel = cat.dataset.sec; S.q = ""; S.confirm = null; render(); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, firm = S.firm, sec = S.sections[S.sel], co = S.companies[firm];
+  switch (act) {
+    case "dismiss": noticeMsg = null; render(); break;
+    case "cancel": S.confirm = null; render(); break;
+    case "openSec": S.sel = b.dataset.sec; S.q = ""; render(); break;
+    case "newCat": S.confirm = { type: "newCat" }; render(); break;
+    case "createCat": {
+      const name = $("#nc_name").value.trim(), prefix = $("#nc_prefix").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!name || !prefix) { S.confirm = { type: "newCat", err: "Name and code prefix are required." }; render(); break; }
+      const id = `${firm}--${slug(name)}`;
+      if (S.sections[id]) { S.confirm = { type: "newCat", err: "This firm already has a category with that name." }; render(); break; }
+      const order = firmSections().reduce((m, [, s]) => Math.max(m, s.order ?? 0), 0) + 10;
+      S.sections[id] = { company: firm, slug: slug(name), title: name, short: name, itemLabel: $("#nc_label").value.trim() || name, prefix,
+        standard: $("#nc_std").value.trim(), description: "", order, columns: [{ key: "size", label: "Size (mm)", num: false }, { key: "weight_kg_m", label: "Kg/m", num: true }], rows: [] };
+      S.sel = id; S.confirm = null; S.openSettings = true; write("sections", id); render(); break;
+    }
+    case "addRow": {
+      const cells = {}; let any = false;
+      for (const c of sec.columns) { const v = ($("#add_" + CSS.escape(c.key))?.value || "").trim(); if (v) { cells[c.key] = c.key === "size" ? v.replace(/\s*[xX×*]\s*/g, " x ") : v; any = true; } }
+      if (!any) { S.confirm = { type: "addErr", msg: "Fill at least the size before adding." }; render(); break; }
+      for (const c of sec.columns) if (c.num && cells[c.key] && isNaN(Number(cells[c.key]))) { S.confirm = { type: "addErr", msg: `${c.label} must be a number.` }; render(); return; }
+      const code = (($("#add___code").value || "").trim().toUpperCase().replace(/\s+/g, "")) || makeCode(sec, cells);
+      const dup = firmSections().find(([, s]) => s.rows.some((r) => r.code === code));
+      if (dup) { S.confirm = { type: "addErr", msg: `Article code ${code} already exists in ${dup[1].title}. Edit that row, or enter a different code.` }; render(); break; }
+      sec.rows.push({ id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code, cells });
+      sec.rows.sort(cmpRows(sec)); S.confirm = null; noticeMsg = { msg: `Added ${code}. Export a new version to update the PDF.` };
+      write("sections", S.sel); render(); break;
+    }
+    case "delRow": S.confirm = { type: "delRow", row: b.dataset.row }; render(); break;
+    case "delRowYes": sec.rows = sec.rows.filter((r) => r.id !== b.dataset.row); S.confirm = null; write("sections", S.sel); render(); break;
+    case "addCol": {
+      const label = $("#newField").value.trim(); if (!label) break;
+      let key = slug(label).replace(/-/g, "_"), n = 2; while (sec.columns.some((c) => c.key === key)) key = slug(label).replace(/-/g, "_") + "_" + n++;
+      sec.columns.push({ key, label, num: false }); S.openSettings = true; write("sections", S.sel); render(); break;
+    }
+    case "delCol": S.confirm = { type: "delCol", key: sec.columns[+b.dataset.col].key }; S.openSettings = true; render(); break;
+    case "delColYes": { const k = sec.columns[+b.dataset.col].key; sec.columns.splice(+b.dataset.col, 1); sec.rows.forEach((r) => delete r.cells[k]); S.confirm = null; write("sections", S.sel); render(); break; }
+    case "colUp": { const i = +b.dataset.col; [sec.columns[i - 1], sec.columns[i]] = [sec.columns[i], sec.columns[i - 1]]; S.openSettings = true; write("sections", S.sel); render(); break; }
+    case "delCat": S.confirm = { type: "delCat" }; S.openSettings = true; render(); break;
+    case "delCatYes": { const id = S.sel; S.sel = null; S.confirm = null; await removeDoc("sections", id); render(); break; }
+    case "addContact": co.contacts = [...(co.contacts || []), { name: "", phone: "", main: !(co.contacts || []).length }]; write("companies", firm); render(); break;
+    case "delContact": co.contacts.splice(+b.dataset.i, 1); if (co.contacts.length && !co.contacts.some((c) => c.main)) co.contacts[0].main = true; write("companies", firm); render(); break;
+    case "addAddr": co.addresses = [...(co.addresses || []), { label: "Branch", text: "" }]; write("companies", firm); render(); break;
+    case "delAddr": co.addresses.splice(+b.dataset.i, 1); write("companies", firm); render(); break;
+    case "openExport": S.exportOpen = true; render(); break;
+    case "closeExport": S.exportOpen = false; render(); break;
+    case "exportDraft": await doExport(false); break;
+    case "exportVersion": await doExport(true); break;
+    case "dlVer": await downloadVersion(b.dataset.id); break;
+    case "restore": S.confirm = { type: "restore", id: b.dataset.id }; render(); break;
+    case "restoreYes": await restoreVersion(b.dataset.id); break;
+  }
+});
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.id === "q") { S.q = t.value; const pos = t.selectionStart; render(); const n = $("#q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return; }
+  if (t.id === "vnote") { S.note = t.value; return; }
+  const sec = S.sections[S.sel], co = S.companies[S.firm];
+  if (t.dataset.i !== undefined && t.dataset.k && sec) {
+    const r = sec.rows[+t.dataset.i];
+    if (t.dataset.k === "__code") r.code = t.value.trim().toUpperCase(); else if (t.value.trim()) r.cells[t.dataset.k] = t.value.trim(); else delete r.cells[t.dataset.k];
+    schedule("sections", S.sel); return;
+  }
+  if (t.dataset.sp && sec) { sec[t.dataset.sp] = t.dataset.sp === "order" ? Number(t.value) || 0 : t.value; schedule("sections", S.sel); return; }
+  if (t.dataset.col !== undefined && t.dataset.cp === "label" && sec) { sec.columns[+t.dataset.col].label = t.value; schedule("sections", S.sel); return; }
+  if (t.dataset.co && co) { co[t.dataset.co] = t.value; schedule("companies", S.firm); return; }
+  if (t.dataset.ct !== undefined && t.dataset.cf !== "main" && co) { co.contacts[+t.dataset.ct][t.dataset.cf] = t.value; schedule("companies", S.firm); return; }
+  if (t.dataset.ad !== undefined && co) { co.addresses[+t.dataset.ad][t.dataset.af] = t.value; schedule("companies", S.firm); return; }
+  if (t.dataset.pal && co) { co.palette = { ...(co.palette || {}), [t.dataset.pal]: t.value }; schedule("companies", S.firm); applyBrand(); return; }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target, sec = S.sections[S.sel], co = S.companies[S.firm];
+  if (t.dataset.col !== undefined && (t.dataset.cp === "num" || t.dataset.cp === "hidden") && sec) { sec.columns[+t.dataset.col][t.dataset.cp] = t.checked; write("sections", S.sel); }
+  if (t.dataset.cf === "main" && co) { co.contacts.forEach((c, i) => (c.main = i === +t.dataset.ct)); write("companies", S.firm); }
+  if (t.dataset.i !== undefined && t.dataset.k && sec) { sec.rows.sort(cmpRows(sec)); }
+});
+document.addEventListener("toggle", (e) => { if (e.target.matches?.("details.settings")) S.openSettings = e.target.open; }, true);
+
+/* ======================================================================
+   7. EXPORT + VERSIONS
+   ====================================================================== */
+function snapshotFirm() {
+  return { company: structuredClone(S.companies[S.firm]), sections: firmSections().map(([id, s]) => ({ id, ...structuredClone(s) })) };
+}
+async function savePdf(blob, name) {
+  if (!S.dl) { notice("Saving files is not available in this view. Open the page on claude.ai to download.", true); return false; }
+  try { await S.dl.save({ filename: name, data: blob }); return true; }
+  catch (e) { if (e.code !== "declined") notice(`Download did not start (${e.code}).`, true); return false; }
+}
+async function doExport(asVersion) {
+  const firm = S.firm, company = S.companies[firm];
+  const number = asVersion ? nextVersion() : 0, now = new Date();
+  S.busy = "Building the PDF…"; render();
+  try {
+    const snap = snapshotFirm();
+    const { doc, pages, articles } = await buildPdf(snap.company, snap.sections, { version: number, dateLabel: dateLabel(now) });
+    const blob = doc.output("blob");
+    if (asVersion) {
+      S.busy = "Saving version…"; render();
+      let assetId = "", assetUrl = "";
+      if (S.assets) { try { const a = await S.assets.upload(new Blob([blob], { type: "application/pdf" })); assetId = a.id; assetUrl = a.url; } catch (e) { /* snapshot alone still lets us rebuild the PDF */ } }
+      const v = { company: firm, number, note: S.note.trim(), createdAt: now.toISOString(), articleCount: articles, pages, assetId, assetUrl, snapshot: snap };
+      const id = `${firm}--v${number}`;
+      S.versions[id] = v;
+      if (!S.test) await S.db.collection("versions").doc(id).set(v);
+      S.note = "";
+    }
+    S.busy = ""; S.exportOpen = !asVersion ? S.exportOpen : false;
+    noticeMsg = { msg: asVersion ? `Version ${number} saved (${articles} articles, ${pages} pages).` : `Draft built (${pages} pages).` };
+    render();
+    await savePdf(blob, fileName(company, number));
+  } catch (e) { S.busy = ""; notice(`Export failed: ${e.message || e.code}`, true); }
+}
+async function downloadVersion(id) {
+  const v = S.versions[id]; if (!v) return;
+  let blob = null;
+  if (v.assetUrl || v.assetId) { try { const r = await fetch(v.assetUrl || "/_blob/" + v.assetId); if (r.ok) blob = await r.blob(); } catch (e) { blob = null; } }
+  if (!blob) {
+    const { doc } = await buildPdf(v.snapshot.company, v.snapshot.sections, { version: v.number, dateLabel: dateLabel(new Date(v.createdAt)) });
+    blob = doc.output("blob");
+  }
+  await savePdf(blob, fileName(v.snapshot.company, v.number));
+}
+async function restoreVersion(id) {
+  const v = S.versions[id]; if (!v) return;
+  const firm = v.company;
+  S.confirm = null;
+  for (const [sid] of firmSections(firm)) if (!v.snapshot.sections.some((s) => s.id === sid)) await removeDoc("sections", sid);
+  for (const s of v.snapshot.sections) { const { id: sid, ...body } = s; S.sections[sid] = structuredClone(body); await write("sections", sid); }
+  S.companies[firm] = structuredClone(v.snapshot.company); await write("companies", firm);
+  noticeMsg = { msg: `Restored the data from version ${v.number}. Export a new version when you are ready.` };
+  S.view = "articles"; S.sel = null; render();
+}
+
+/* ======================================================================
+   8. BOOT
+   ====================================================================== */
+window.__studio = { buildPdf, S, render };
+(async function boot() {
+  if (window.__TEST_DATA__) {
+    S.test = true; Object.assign(S.companies, window.__TEST_DATA__.companies); Object.assign(S.sections, window.__TEST_DATA__.sections);
+    S.ready = true; render(); return;
+  }
+  if (!window.claude?.use) { $("#boot").innerHTML = `<h2>Open this page on claude.ai</h2><p>The stock data lives in this artifact's database, which only loads inside Claude.</p>`; return; }
+  const [db, dl, assets] = await Promise.all([claude.use("db"), claude.use("downloads"), claude.use("assets")]);
+  S.dl = dl; S.assets = assets;
+  if (!db) { $("#boot").innerHTML = `<h2>Sign in to see the catalogue</h2><p>The stock data loads for signed-in members who have access to this page.</p>`; return; }
+  S.db = db; subscribe();
+})();
+</script>
