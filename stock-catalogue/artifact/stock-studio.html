@@ -332,18 +332,19 @@ async function buildPdf(company, sectionsIn, meta) {
     chipPos.push([s, x, y, w, CH]);
     x += w + 8;
   }
-  color(P.bg); font("bold", 22); doc.text(String(total), M + 2, block - 30);
-  const tw = doc.getTextWidth(String(total));
-  font("normal", 10.5); color(P.accent); doc.text(`articles in ${sections.length} categories`, M + 8 + tw, block - 31);
+  const roundDown = (n) => (n >= 100 ? `${Math.floor(n / 100) * 100}+` : n >= 10 ? `${Math.floor(n / 10) * 10}+` : String(n));
+  const totalLabel = roundDown(total), catLabel = sections.length >= 2 ? `${sections.length}+` : String(sections.length);
+  color(P.bg); font("bold", 22); doc.text(totalLabel, M + 2, block - 30);
+  const tw = doc.getTextWidth(totalLabel);
+  font("normal", 10.5); color(P.accent); doc.text(`articles in ${catLabel} categories`, M + 8 + tw, block - 31);
 
   let yy = block + 38;
   color(P.primary); font("bold", 14); doc.text("How to use this catalogue", M, yy);
   const steps = [
-    ["Search", "On your phone, tap the search icon in your PDF app and type a size such as 50x50 or 25 NB.", "On a computer: press Ctrl+F (Cmd+F on Mac)."],
-    ["Enquire on WhatsApp", "Tap the Enquire button next to any article. WhatsApp opens with the details filled in. Add the quantity and send."],
-    ["Need something else?", "Not every size we supply is listed. Ask us and we will source it for you at short notice."],
+    ["Enquire on WhatsApp", "Tap the Enquire button next to any article. WhatsApp opens with the article details already filled in. Add the quantity you need and send."],
+    ["Need something else?", "Not every size we supply is listed here. Message or call us and we will source it for you at short notice."],
   ];
-  const sw3 = (PW - 2 * M - 24) / 3;
+  const sw3 = (PW - 2 * M - 24) / 2;
   steps.forEach(([t, d, extra], i) => {
     const sx = M + i * (sw3 + 12);
     fill(P.primary); doc.circle(sx + 11, yy + 26, 11, "F");
@@ -353,7 +354,7 @@ async function buildPdf(company, sectionsIn, meta) {
     color(P.ink); font("normal", 9); const h = para(d, sx + 30, yy + 45, sw3 - 30, 9, 11.8);
     if (extra) { color(P.primary); font("italic", 8.4); para(extra, sx + 30, yy + 49 + h, sw3 - 30, 8.4, 11); }
   });
-  yy += 128;
+  yy += 100;
   color(P.primary); font("bold", 14); doc.text("Talk to us", M, yy);
   const n = contacts.length, cw = (PW - 2 * M - (n - 1) * 12) / n;
   contacts.forEach((c, i) => {
@@ -483,19 +484,18 @@ async function buildPdf(company, sectionsIn, meta) {
   });
   ty += 24;
   const boxes = [
-    ["Search", "On your phone, tap the search icon in your PDF app. Type a size such as 50x50, 40 x 20, 25 NB or a code such as SHS-50X50-2.0. On a computer, press Ctrl+F (Cmd+F on Mac)."],
     ["Enquire on WhatsApp", "Tap Enquire next to any article. WhatsApp opens with the article details filled in. Add the quantity you need and send."],
     ["Sourcing on request", "This catalogue lists our regular range. If you need a size, grade or section that is not listed, ask us and we will source it."],
   ];
-  const bw3 = (PW - 2 * M - 24) / 3;
+  const bw3 = (PW - 2 * M - 12) / 2;
   boxes.forEach(([t, d], i) => {
     const bx = M + i * (bw3 + 12);
-    fill(P.surface); doc.roundedRect(bx, ty, bw3, 128, 8, 8, "F");
+    fill(P.surface); doc.roundedRect(bx, ty, bw3, 92, 8, 8, "F");
     fill(P.rule); doc.rect(bx + 13, ty + 14, 22, 3, "F");
     color(P.primary); font("bold", 11); doc.text(t, bx + 13, ty + 34);
     color(P.ink); font("normal", 8.8); para(d, bx + 13, ty + 52, bw3 - 26, 8.8, 11.6);
   });
-  ty += 150;
+  ty += 114;
   color(P.ink); font("italic", 8.4);
   para("Notes: weights are as per standard section tables and are indicative; actual weights vary within mill tolerance. Kg/pc is for a 6 m length. Pipes: tolerance in thickness and weight ±10%. Prices are confirmed on enquiry.", M, ty, PW - 2 * M, 8.4, 11);
   // chips on the cover link to sections
