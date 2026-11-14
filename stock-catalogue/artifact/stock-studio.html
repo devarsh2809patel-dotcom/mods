@@ -254,6 +254,7 @@ async function buildPdf(company, sectionsIn, meta) {
     doc.triangle(cx - r * .38, cy + r * .28, cx - r * .5, cy + r * .62, cx - r * .08, cy + r * .28, "F");
     fill(bgc); [-.27, 0, .27].forEach((d) => doc.circle(cx + d * r, cy - r * .07, r * .08, "F"));
   }
+  function chevron(x, y, s, col) { stroke(col); doc.setLineWidth(1.6); doc.line(x - s / 2, y - s, x + s / 2, y); doc.line(x + s / 2, y, x - s / 2, y + s); }
   function centred(text, x, y, w, h, size) { doc.text(text, x + w / 2, y + h / 2 + size * .35, { align: "center" }); }
   function para(text, x, y, w, size, lead) { const lines = doc.splitTextToSize(text, w); doc.text(lines, x, y, { lineHeightFactor: lead / size }); return lines.length * lead; }
 
@@ -316,18 +317,20 @@ async function buildPdf(company, sectionsIn, meta) {
   let ns = 40; font("bold", ns); while (doc.getTextWidth(company.name) > 330 && ns > 24) { ns -= 2; font("bold", ns); }
   color(P.bg); doc.text(company.name, M + 1, cy + 44);
   color(P.accent); font("bold", 15.5); doc.text(company.tagline || "", M + 2, cy + 68);
-  color(P.bg); font("normal", 10.5); doc.text(`Edition ${meta.version ? "v" + meta.version + " · " : ""}${meta.dateLabel}`, M + 2, cy + 90);
-  color(P.accent); font("bold", 8); doc.text("PRODUCT RANGE", M + 3, cy + 124, { charSpace: 1 });
-  let x = M + 2, y = cy + 134;
-  font("bold", 9);
+  color(P.accent); font("bold", 8.5); doc.text("TAP A PRODUCT TO OPEN IT", M + 3, cy + 104, { charSpace: 1 });
+  let x = M + 2, y = cy + 114;
+  const CH = 24;
+  font("bold", 10);
   const chipPos = [];
   for (const s of sections) {
-    const w = doc.getTextWidth(s.short || s.title) + 18;
-    if (x + w > PW - 236) { x = M + 2; y += 24; }
-    stroke(P.bg); doc.setLineWidth(.8); doc.roundedRect(x, y, w, 17, 8.5, 8.5, "S");
-    color(P.bg); centred(s.short || s.title, x, y, w, 17, 9);
-    chipPos.push([s, x, y, w]);
-    x += w + 7;
+    const label = s.short || s.title;
+    const w = doc.getTextWidth(label) + 34;
+    if (x + w > PW - 232) { x = M + 2; y += CH + 8; }
+    fill(P.bg); doc.roundedRect(x, y, w, CH, 6, 6, "F");
+    color(P.primary); font("bold", 10); doc.text(label, x + 11, y + CH / 2 + 3.5);
+    chevron(x + w - 15, y + CH / 2, 3.2, P.primary);
+    chipPos.push([s, x, y, w, CH]);
+    x += w + 8;
   }
   color(P.bg); font("bold", 22); doc.text(String(total), M + 2, block - 30);
   const tw = doc.getTextWidth(String(total));
@@ -336,37 +339,41 @@ async function buildPdf(company, sectionsIn, meta) {
   let yy = block + 38;
   color(P.primary); font("bold", 14); doc.text("How to use this catalogue", M, yy);
   const steps = [
-    ["Find", "Press Ctrl+F (Cmd+F on Mac) or tap the search icon in your PDF app. Type a size such as 50x50 or 25 NB."],
-    ["Enquire on WhatsApp", "Tap Enquire next to any article. WhatsApp opens with the details filled in. Add the quantity and send."],
+    ["Search", "On your phone, tap the search icon in your PDF app and type a size such as 50x50 or 25 NB.", "On a computer: press Ctrl+F (Cmd+F on Mac)."],
+    ["Enquire on WhatsApp", "Tap the Enquire button next to any article. WhatsApp opens with the details filled in. Add the quantity and send."],
     ["Need something else?", "Not every size we supply is listed. Ask us and we will source it for you at short notice."],
   ];
   const sw3 = (PW - 2 * M - 24) / 3;
-  steps.forEach(([t, d], i) => {
+  steps.forEach(([t, d, extra], i) => {
     const sx = M + i * (sw3 + 12);
     fill(P.primary); doc.circle(sx + 11, yy + 26, 11, "F");
     stroke(P.rule); doc.setLineWidth(1.4); doc.circle(sx + 11, yy + 26, 13.5, "S");
     color(P.bg); font("bold", 11); doc.text(String(i + 1), sx + 11, yy + 30, { align: "center" });
     color(P.ink); font("bold", 11); doc.text(t, sx + 30, yy + 30);
-    color(P.ink); font("normal", 9); para(d, sx + 30, yy + 45, sw3 - 30, 9, 11.8);
+    color(P.ink); font("normal", 9); const h = para(d, sx + 30, yy + 45, sw3 - 30, 9, 11.8);
+    if (extra) { color(P.primary); font("italic", 8.4); para(extra, sx + 30, yy + 49 + h, sw3 - 30, 8.4, 11); }
   });
-  yy += 112;
+  yy += 128;
   color(P.primary); font("bold", 14); doc.text("Talk to us", M, yy);
   const n = contacts.length, cw = (PW - 2 * M - (n - 1) * 12) / n;
   contacts.forEach((c, i) => {
-    const cx = M + i * (cw + 12), top = yy + 12;
-    fill(P.surface); doc.roundedRect(cx, top, cw, 80, 8, 8, "F");
+    const cx = M + i * (cw + 12), top = yy + 12, BH = 28, by = top + 50;
+    fill(P.surface); doc.roundedRect(cx, top, cw, 92, 8, 8, "F");
     color(P.ink); font("bold", 13); doc.text(c.name, cx + 14, top + 24);
     font("normal", 11); doc.text(prettyPhone(c.phone), cx + 14, top + 41);
-    const bw = 92;
-    fill(P.primary); doc.roundedRect(cx + 14, top + 50, bw, 21, 10.5, 10.5, "F");
-    chat(cx + 25, top + 60.5, 7.4, P.bg, P.primary);
-    color(P.bg); font("bold", 9); doc.text("WhatsApp", cx + 38, top + 64);
-    doc.link(cx + 14, top + 50, bw, 21, { url: waLink(c.phone, generalMsg) });
-    stroke(P.primary); doc.setLineWidth(.9); doc.roundedRect(cx + 22 + bw, top + 50, 52, 21, 10.5, 10.5, "S");
-    color(P.primary); centred("Call", cx + 22 + bw, top + 50, 52, 21, 9);
-    doc.link(cx + 22 + bw, top + 50, 52, 21, { url: "tel:+" + waDigits(c.phone) });
+    const callW = 74, bw = Math.min(140, cw - 28 - callW - 8);
+    const waLabel = bw >= 130 ? "Chat on WhatsApp" : "WhatsApp";
+    fill(P.primary); doc.roundedRect(cx + 14, by, bw, BH, 7, 7, "F");
+    chat(cx + 28, by + BH / 2, 8.5, P.bg, P.primary);
+    color(P.bg); font("bold", 10); doc.text(waLabel, cx + 42, by + BH / 2 + 3.6);
+    doc.link(cx + 14, by, bw, BH, { url: waLink(c.phone, generalMsg) });
+    const kx = cx + 22 + bw;
+    fill(P.bg); stroke(P.primary); doc.setLineWidth(1.4); doc.roundedRect(kx, by, callW, BH, 7, 7, "FD");
+    color(P.primary); font("bold", 10); doc.text("Call now", kx + 12, by + BH / 2 + 3.6);
+    chevron(kx + callW - 12, by + BH / 2, 3.2, P.primary);
+    doc.link(kx, by, callW, BH, { url: "tel:+" + waDigits(c.phone) });
   });
-  yy += 124;
+  yy += 130;
   const cols = [...(company.addresses || []).filter((a) => a.text)];
   if (company.email) cols.push({ label: "Email", text: company.email });
   if (company.website) cols.push({ label: "Website", text: company.website });
@@ -467,14 +474,16 @@ async function buildPdf(company, sectionsIn, meta) {
     color(P.bg); font("bold", 10); doc.text(String(i + 1).padStart(2, "0"), M + 11, ty + 21, { align: "center" });
     color(P.ink); font("bold", 12.5); doc.text(s.title, M + 32, ty + 16);
     color(P.primary); font("normal", 8.5); doc.text([s.standard, `${s.rows.length} articles`].filter(Boolean).join("  ·  "), M + 32, ty + 28);
-    font("bold", 12.5); doc.text(String(pg), PW - M - 4, ty + 21, { align: "right" });
-    font("normal", 8); doc.text("page", PW - M - 26, ty + 21, { align: "right" });
+    const gw = 66, gh = 22, gx = PW - M - gw, gy = ty + (h - gh) / 2;
+    fill(P.primary); doc.roundedRect(gx, gy, gw, gh, 6, 6, "F");
+    color(P.bg); font("bold", 9.5); doc.text(`Page ${pg}`, gx + 10, gy + gh / 2 + 3.3);
+    chevron(gx + gw - 12, gy + gh / 2, 3, P.bg);
     doc.link(M, ty, PW - 2 * M, h, { pageNumber: pg });
     ty += h;
   });
   ty += 24;
   const boxes = [
-    ["Search", "Press Ctrl+F (Windows), Cmd+F (Mac) or tap the search icon. Type a size such as 50x50, 40 x 20, 25 NB or a code such as SHS-50X50-2.0."],
+    ["Search", "On your phone, tap the search icon in your PDF app. Type a size such as 50x50, 40 x 20, 25 NB or a code such as SHS-50X50-2.0. On a computer, press Ctrl+F (Cmd+F on Mac)."],
     ["Enquire on WhatsApp", "Tap Enquire next to any article. WhatsApp opens with the article details filled in. Add the quantity you need and send."],
     ["Sourcing on request", "This catalogue lists our regular range. If you need a size, grade or section that is not listed, ask us and we will source it."],
   ];
@@ -491,7 +500,7 @@ async function buildPdf(company, sectionsIn, meta) {
   para("Notes: weights are as per standard section tables and are indicative; actual weights vary within mill tolerance. Kg/pc is for a 6 m length. Pipes: tolerance in thickness and weight ±10%. Prices are confirmed on enquiry.", M, ty, PW - 2 * M, 8.4, 11);
   // chips on the cover link to sections
   doc.setPage(1);
-  chipPos.forEach(([s, cx2, cy2, w]) => doc.link(cx2, cy2, w, 17, { pageNumber: startPage[s.slug + s.title] }));
+  chipPos.forEach(([s, cx2, cy2, w, h]) => doc.link(cx2, cy2, w, h, { pageNumber: startPage[s.slug + s.title] }));
 
   /* ---------- chrome on every page ---------- */
   const N = doc.getNumberOfPages();
