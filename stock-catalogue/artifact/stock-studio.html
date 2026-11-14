@@ -542,7 +542,7 @@ async function write(kind, id) {
   const json = JSON.stringify(body);
   lastWritten[key] = json;
   try {
-    if (!S.test) await S.db.collection(kind).doc(id).set(JSON.parse(json));
+    if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).set(JSON.parse(json));
     status("Saved");
   } catch (e) {
     status("Not saved", true);
@@ -553,7 +553,7 @@ async function write(kind, id) {
 }
 async function removeDoc(kind, id) {
   if (kind === "sections") delete S.sections[id]; else if (kind === "versions") delete S.versions[id];
-  try { if (!S.test) await S.db.collection(kind).doc(id).delete(); status("Saved"); }
+  try { if (S.local) saveLocal(); else if (!S.test) await S.db.collection(kind).doc(id).delete(); status("Saved"); }
   catch (e) { notice(`Could not delete: ${e.message || e.code}`, true); }
 }
 let noticeMsg = null;
@@ -763,7 +763,24 @@ function versionsView() {
   return `<section class="panel"><div class="row between"><div><h1>Versions · ${esc(c.name)}</h1>
     <p class="sub">Each export is kept with the exact PDF and a copy of the data at that moment. Restoring replaces the current articles and company details with that copy.</p></div>
     <button class="btn solid" data-act="openExport">Export new version</button></div>
-    <div class="vlist" style="margin-top:12px">${list || `<div class="empty">No versions yet. Press <b>Export PDF</b> to create version 1.</div>`}</div></section>`;
+    <div class="vlist" style="margin-top:12px">${list || `<div class="empty">No versions yet. Press <b>Export PDF</b> to create version 1.</div>`}</div></section>
+  ${backupPanel()}`;
+}
+function backupPanel() {
+  const imp = S.confirm?.type === "import" ? S.confirm : null;
+  const count = imp ? Object.values(imp.data.sections).reduce((n, s) => n + (s.rows?.length || 0), 0) : 0;
+  return `<section class="panel"><h2>Data file (backup &amp; sharing)</h2>
+    <p class="sub">${S.local
+      ? "Your data is saved in this browser on this device only. Download a data file regularly as a backup, and to move your stock list to another phone or computer (send it on WhatsApp or email, then open it there)."
+      : "Download all articles, company details and versions as one file. Open it in the standalone Stock Catalogue Studio to keep working without Claude."}</p>
+    <div class="row" style="margin-top:10px">
+      <button class="btn solid" data-act="exportData" type="button">Download data file</button>
+      ${S.local ? `<label class="btn" for="importFile" style="cursor:pointer">Open data file</label><input type="file" id="importFile" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0">` : ""}
+    </div>
+    ${imp ? `<div class="notice" style="margin-top:12px"><p><b>Replace everything on this device with “${esc(imp.name)}”?</b> It has ${count} articles and ${Object.keys(imp.data.versions || {}).length} versions. What is on this device now will be overwritten; download a data file first if you want to keep it.</p>
+      <div class="row"><button class="btn danger" data-act="importYes">Replace with this file</button><button class="btn ghost" data-act="cancel">Cancel</button></div></div>` : ""}
+    ${S.confirm?.type === "importErr" ? `<p class="flag" style="margin-top:8px">${esc(S.confirm.msg)}</p>` : ""}
+  </section>`;
 }
 
 /* ======================================================================
@@ -826,6 +843,15 @@ document.addEventListener("click", async (e) => {
     case "dlVer": await downloadVersion(b.dataset.id); break;
     case "restore": S.confirm = { type: "restore", id: b.dataset.id }; render(); break;
     case "restoreYes": await restoreVersion(b.dataset.id); break;
+    case "exportData": await saveFile(dataFile(), `Stock_Catalogue_Data_${new Date().toISOString().slice(0, 10)}.json`); break;
+    case "importYes": {
+      const d = S.confirm.data;
+      for (const k of Object.keys(S.companies)) delete S.companies[k];
+      for (const k of Object.keys(S.sections)) delete S.sections[k];
+      for (const k of Object.keys(S.versions)) delete S.versions[k];
+      Object.assign(S.companies, d.companies); Object.assign(S.sections, d.sections); Object.assign(S.versions, d.versions || {});
+      S.confirm = null; S.sel = null; saveLocal(); noticeMsg = { msg: "Data file loaded and saved on this device." }; render(); break;
+    }
   }
 });
 document.addEventListener("input", (e) => {
@@ -847,6 +873,15 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("change", (e) => {
   const t = e.target, sec = S.sections[S.sel], co = S.companies[S.firm];
+  if (t.id === "importFile" && t.files?.[0]) {
+    const f = t.files[0];
+    f.text().then((txt) => {
+      let d = null; try { d = JSON.parse(txt); } catch (err) { d = null; }
+      S.confirm = validData(d) ? { type: "import", data: d, name: f.name } : { type: "importErr", msg: "That file is not a Stock Catalogue data file. Choose a file made with “Download data file”." };
+      render();
+    });
+    return;
+  }
   if (t.dataset.col !== undefined && (t.dataset.cp === "num" || t.dataset.cp === "hidden") && sec) { sec.columns[+t.dataset.col][t.dataset.cp] = t.checked; write("sections", S.sel); }
   if (t.dataset.cf === "main" && co) { co.contacts.forEach((c, i) => (c.main = i === +t.dataset.ct)); write("companies", S.firm); }
   if (t.dataset.i !== undefined && t.dataset.k && sec) { sec.rows.sort(cmpRows(sec)); }
@@ -859,11 +894,39 @@ document.addEventListener("toggle", (e) => { if (e.target.matches?.("details.set
 function snapshotFirm() {
   return { company: structuredClone(S.companies[S.firm]), sections: firmSections().map(([id, s]) => ({ id, ...structuredClone(s) })) };
 }
-async function savePdf(blob, name) {
+/* ---------- standalone mode: data saved in this browser ---------- */
+const LOCAL_KEY = "stockCatalogueStudio.v1";
+let localTimer = null;
+function saveLocal() {
+  clearTimeout(localTimer);
+  localTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify({ format: "stock-studio", companies: S.companies, sections: S.sections, versions: S.versions, savedAt: new Date().toISOString() }));
+      status("Saved on this device");
+    } catch (e) {
+      status("Not saved", true);
+      notice("This browser refused to save (storage full or blocked). Download a data file from the Versions tab now so nothing is lost.", true);
+    }
+  }, 250);
+}
+function localDownload(blob, name) {
+  const u = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 10000);
+}
+function dataFile() {
+  return new Blob([JSON.stringify({ format: "stock-studio", exportedAt: new Date().toISOString(), companies: S.companies, sections: S.sections, versions: S.versions })], { type: "application/json" });
+}
+function validData(d) {
+  return d && d.format === "stock-studio" && d.companies && d.sections && typeof d.companies === "object" && typeof d.sections === "object";
+}
+async function saveFile(blob, name) {
+  if (S.local) { localDownload(blob, name); return true; }
   if (!S.dl) { notice("Saving files is not available in this view. Open the page on claude.ai to download.", true); return false; }
   try { await S.dl.save({ filename: name, data: blob }); return true; }
   catch (e) { if (e.code !== "declined") notice(`Download did not start (${e.code}).`, true); return false; }
 }
+async function savePdf(blob, name) { return saveFile(blob, name); }
 async function doExport(asVersion) {
   const firm = S.firm, company = S.companies[firm];
   const number = asVersion ? nextVersion() : 0, now = new Date();
@@ -879,7 +942,7 @@ async function doExport(asVersion) {
       const v = { company: firm, number, note: S.note.trim(), createdAt: now.toISOString(), articleCount: articles, pages, assetId, assetUrl, snapshot: snap };
       const id = `${firm}--v${number}`;
       S.versions[id] = v;
-      if (!S.test) await S.db.collection("versions").doc(id).set(v);
+      if (S.local) saveLocal(); else if (!S.test) await S.db.collection("versions").doc(id).set(v);
       S.note = "";
     }
     S.busy = ""; S.exportOpen = !asVersion ? S.exportOpen : false;
@@ -914,6 +977,17 @@ async function restoreVersion(id) {
    ====================================================================== */
 window.__studio = { buildPdf, S, render };
 (async function boot() {
+  if (window.__SEED__) {
+    S.local = true;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LOCAL_KEY) || "null"); } catch (e) { saved = null; }
+    const src = validData(saved) ? saved : window.__SEED__;
+    Object.assign(S.companies, structuredClone(src.companies)); Object.assign(S.sections, structuredClone(src.sections));
+    Object.assign(S.versions, structuredClone(src.versions || {}));
+    try { navigator.storage?.persist?.(); } catch (e) { /* optional */ }
+    S.ready = true; render(); status(validData(saved) ? "Saved on this device" : "Starting data loaded");
+    return;
+  }
   if (window.__TEST_DATA__) {
     S.test = true; Object.assign(S.companies, window.__TEST_DATA__.companies); Object.assign(S.sections, window.__TEST_DATA__.sections);
     S.ready = true; render(); return;

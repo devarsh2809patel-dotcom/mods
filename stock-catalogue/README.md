@@ -1,5 +1,13 @@
 # Stock Catalogue & Management System
 
+> **Standalone tool (no Claude needed): `standalone/Stock_Catalogue_Studio.html`**
+> * Open the file in any browser (Chrome, Edge, Safari) on a phone or computer. It works offline, with no login.
+> * Every change is saved in that browser straight away, so added articles are kept for every later export.
+> * Export PDF downloads the catalogue and keeps a numbered version.
+> * Versions tab > *Download data file* = backup, or move your data to another device (*Open data file* there).
+> * Data lives per browser, per device. Two people editing on two phones means two separate copies; use the data file to hand over.
+> * Rebuild after code changes: `python artifact/build_standalone.py`.
+
 > **Main tool: Stock Catalogue Studio**, a Claude artifact at https://claude.ai/artifact/Ac837AkyZGBdqMahKbqBGb
 > It works in any browser, including iPad, with no install.
 > * Edit articles, fields, categories, company details and colours.
